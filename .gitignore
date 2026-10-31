@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+
+# corpus downloads and generated datasets (rebuild with nunchi.make_data / make_noise)
+data/
+
+# trained models (rebuild with nunchi.train_fasttext / compare)
+models/
