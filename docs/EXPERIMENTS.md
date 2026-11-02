@@ -118,6 +118,22 @@ dominate; for a user who types both languages about equally, English-side errors
 English). The priority depends on the target user's mix, so model changes are judged per category and the
 mix is applied afterwards.
 
+## Speed (2026-11-02)
+
+- The GPU runs at ~8% of its FP16 peak on this model: time goes to many small operations, not matrix
+  multiplies (11 ms of a ~85 ms step). Bigger batches did not raise throughput (2048: +3%, 4096: slower),
+  FP16 vs BF16 made no difference.
+- **CRF without the per-key loop** (`log_z_tree`, `score_vec` in `nunchi/stream_tagger.py`): 86 -> 76 ms a step,
+  same loss and gradients. Kept.
+- **Pools as one byte buffer** (`LineStore`), and on Linux one sampler shared by forked workers: data workers
+  1.8 GB -> far less each; WSL training 8.2 -> 4.7 GB (WSL gets half of the 16 GB RAM).
+- **WSL**: batches through the worker queue took 40-77 ms a step with torch's default file-descriptor sharing;
+  `file_system` sharing (now the Linux default) brought it to 3 ms. After that WSL = Windows (GPU compute
+  5-10% faster in WSL, not enough to move).
+- Tried, no gain: a (B, T) padding mask instead of the full mask (same speed; kept, same output), batches
+  padded to few shapes, torch.compile (default mode did not finish compiling in 25 min; with graph capture no
+  faster), ROCm TunableOp (did not finish tuning in 15 min).
+
 ## Lessons
 
 - Before calling a design a failure, check the training budget (RV0 at 17k vs TR-long at 51k).

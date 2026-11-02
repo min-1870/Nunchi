@@ -37,6 +37,8 @@ MAX_T = 64  # keys kept per stream, latest whole words; 64 lost nothing against 
 # digit keys: older models read every digit as "other" (id 1); a model with digits=True has its own id per
 # digit after SPACE (TR2 on: the training text keeps numbers, 3개 / gpt4 / 2019, instead of dropping them)
 DIGIT0 = SPACE + 1
+PROFILE = os.environ.get("NUNCHI_PROFILE") == "1"  # log where a training step's time goes
+prof = [0.0, 0.0, 0.0]
 
 
 def cut(sent, t_end, left):
@@ -102,8 +104,42 @@ def encode(batch, targets=None, skip_last=False, digits=False):
             torch.from_numpy(widx), torch.from_numpy(kidx), torch.from_numpy(labs), cmask, cmask.any(2))
 
 
+NEG = -1e4  # stands in for -inf in the log-space identity (keeps gradients finite)
+
+
+def log_z_tree(self, em, mask):
+    """Tagger.log_z without the per-key loop: with 2 labels, step t is a 2x2 log-space matrix
+    M_t[j, k] = trans[j, k] + em_t[k] (identity where the key is padding), and the forward pass is the
+    log-space product of the M_t, taken pairwise in log2(L) rounds instead of L small steps (the loop
+    launched hundreds of tiny GPU ops per training step and was half its time). Same value."""
+    N, L, _ = em.shape
+    alpha = self.start + em[:, 0]
+    if L > 1:
+        m = self.trans.unsqueeze(0).unsqueeze(0) + em[:, 1:].unsqueeze(2)  # (N, L-1, 2, 2): [j, k]
+        eye = torch.full((2, 2), NEG, device=em.device, dtype=em.dtype).fill_diagonal_(0.0)
+        m = torch.where(mask[:, 1:].unsqueeze(-1).unsqueeze(-1), m, eye)
+        while m.size(1) > 1:
+            if m.size(1) % 2:
+                m = torch.cat([m, eye.expand(N, 1, 2, 2)], 1)
+            a, b = m[:, 0::2], m[:, 1::2]  # (N, n, 2, 2) each; product a @ b in log space
+            m = torch.logsumexp(a.unsqueeze(-1) + b.unsqueeze(-3), dim=-2)
+        alpha = torch.logsumexp(alpha.unsqueeze(2) + m[:, 0], dim=1)
+    return torch.logsumexp(alpha + self.end, dim=1)
+
+
+def score_vec(self, em, labs, mask):
+    """Tagger.score without the per-key loop: the path's emissions and transitions summed at once."""
+    e = em.gather(2, labs.unsqueeze(2)).squeeze(2)  # (N, L)
+    s = self.start[labs[:, 0]] + e[:, 0]
+    if labs.size(1) > 1:
+        s = s + ((e[:, 1:] + self.trans[labs[:, :-1], labs[:, 1:]]) * mask[:, 1:]).sum(1)
+    last = labs.gather(1, (mask.sum(1) - 1).unsqueeze(1)).squeeze(1)
+    return s + self.end[last]
+
+
 class StreamTagger(nn.Module):
-    log_z, score, decode_em = Tagger.log_z, Tagger.score, Tagger.decode_em  # same CRF
+    decode_em = Tagger.decode_em  # same CRF as the word tagger; log_z / score computed without the key loop
+    log_z, score = log_z_tree, score_vec
 
     def __init__(self, d=256, heads=4, layers=4, ff=1024, dropout=0.1, left=None, right=1, digits=False):
         super().__init__()
@@ -124,17 +160,27 @@ class StreamTagger(nn.Module):
         self.start = nn.Parameter(torch.zeros(2))
         self.end = nn.Parameter(torch.zeros(2))
 
-    def forward_words(self, ids, pos, wpos, widx, kidx, cmask, wmask):
+    def stream_emissions(self, ids, pos, wpos, widx):
+        """(B, T) keys -> (B, T, 2) emissions: the encoder part, fixed shapes (train() may compile it)."""
         B, T = ids.shape
         x = self.tok(ids) + self.pos(pos) + self.wpos(wpos)
         # key i sees key j when j's word is at most one word after i's word (and j is not padding)
-        see = widx.unsqueeze(1) < 10_000
-        if self.right is not None:
-            see = see & (widx.unsqueeze(1) <= widx.unsqueeze(2) + self.right)
-        see = see.expand(B, T, T) | torch.eye(T, dtype=torch.bool, device=ids.device)
-        mask = (~see).repeat_interleave(self.heads, 0)
-        h = self.norm(self.enc(x, mask=mask))
-        em_stream = self.out(h).float()  # the CRF runs in full precision even under bf16 autocast
+        if self.right is None:
+            # every key sees every other one but padding: a (B, T) padding mask gives the same outputs at the
+            # real keys as the full (B*heads, T, T) mask (padded rows differ, and nothing reads them), faster
+            h = self.norm(self.enc(x, src_key_padding_mask=widx >= 10_000))
+        else:
+            see = widx.unsqueeze(1) < 10_000
+            if self.right is not None:
+                see = see & (widx.unsqueeze(1) <= widx.unsqueeze(2) + self.right)
+            see = see.expand(B, T, T) | torch.eye(T, dtype=torch.bool, device=ids.device)
+            mask = (~see).repeat_interleave(self.heads, 0)
+            h = self.norm(self.enc(x, mask=mask))
+        return self.out(h).float()  # the CRF runs in full precision even under bf16 autocast
+
+    def forward_words(self, ids, pos, wpos, widx, kidx, cmask, wmask):
+        B = ids.size(0)
+        em_stream = self.stream_emissions(ids, pos, wpos, widx)
         idx = wmask.view(-1).nonzero().squeeze(1)
         Wn, L = kidx.size(1), kidx.size(2)
         b_of = torch.arange(B, device=ids.device).repeat_interleave(Wn)[idx]
@@ -185,11 +231,14 @@ def labelled(samples, rnd, left, one_word, right=1):
     return out, tg
 
 
+_SAMPLER = None  # built once in the parent on Linux; forked workers share its memory
+
+
 def producer(seed, queue, batch, bucket=16, left=None, one_word=False, right=1, skip_last=False, digits=False):
     """Builds `bucket` batches at a time from samples sorted by length, so little of a batch is padding.
     skip_last: a reviser (RV): label every word but the last one, which the decision at Space covers."""
     rnd = random.Random(seed)
-    sampler = Sampler()
+    sampler = _SAMPLER or Sampler()
     while True:
         samples = sampler.batch(batch * bucket, rnd)
         if skip_last:  # a stream of one word has nothing to revise
@@ -245,15 +294,19 @@ def train(log_path, steps=300, eval_every=150, patience=5, batch=256, workers=5,
         ctypes.windll.kernel32.SetThreadExecutionState(0x80000000 | 0x00000001)
     seed = int(os.environ.get("NUNCHI_SEED", seed))  # same recipe, another seed: how much results move by chance
     torch.manual_seed(seed)
-    dev = device()
-    if dev.type == "cuda":  # leave the rest of the GPU to the desktop (a full card once froze the PC)
-        torch.cuda.set_per_process_memory_fraction(float(os.environ.get("NUNCHI_VRAM", "0.7")))
     left = int(os.environ["NUNCHI_LEFT"]) if os.environ.get("NUNCHI_LEFT") else None
     one_word = os.environ.get("NUNCHI_ONE_WORD") == "1"
     # words after the judged one it learns to use; "all": every word typed so far sees every other one
     right = os.environ.get("NUNCHI_RIGHT", "1")
     right = None if right == "all" else int(right)
-    ctx = mp.get_context("spawn")
+    # Linux: build the sampler once and fork the workers, which then share its data; before any GPU use, a
+    # forked GPU context is not safe. Windows cannot fork: each spawned worker builds its own sampler.
+    global _SAMPLER
+    if sys.platform != "win32":
+        _SAMPLER = Sampler()
+    ctx = mp.get_context("spawn" if sys.platform == "win32" else "fork")
+    if sys.platform != "win32":  # batches through the queue: the default (file descriptors) cost WSL 40-77 ms
+        torch.multiprocessing.set_sharing_strategy(os.environ.get("NUNCHI_SHARING", "file_system"))  # a step, this 3
     queue = ctx.Queue(maxsize=32)
     skip_last = os.environ.get("NUNCHI_SKIP_LAST") == "1"  # a reviser: no label on the word just typed
     digits = os.environ.get("NUNCHI_DIGITS") == "1"
@@ -261,7 +314,10 @@ def train(log_path, steps=300, eval_every=150, patience=5, batch=256, workers=5,
                          daemon=True) for i in range(workers)]
     for p in procs:
         p.start()
-    data = load_sentences()
+    dev = device()
+    if dev.type == "cuda":  # leave the rest of the GPU to the desktop (a full card once froze the PC)
+        torch.cuda.set_per_process_memory_fraction(float(os.environ.get("NUNCHI_VRAM", "0.7")))
+    data = _SAMPLER.data if _SAMPLER else load_sentences()
     vr = random.Random(1)
     valid = []
     for name in ("nsmc", "kcbert", "tatoeba", "tatoeba_en"):
@@ -304,7 +360,11 @@ def train(log_path, steps=300, eval_every=150, patience=5, batch=256, workers=5,
         if time.time() > deadline:
             say("  deadline reached, stopping")
             break
-        b = to_dev(queue.get(), dev)
+        t0 = time.perf_counter()
+        raw = queue.get()
+        t1 = time.perf_counter()
+        b = to_dev(raw, dev)
+        t2 = time.perf_counter()
         with torch.autocast("cuda", dtype=torch.bfloat16, enabled=BF16 and dev.type == "cuda"):
             loss = model.loss(*b)
         opt.zero_grad()
@@ -313,11 +373,16 @@ def train(log_path, steps=300, eval_every=150, patience=5, batch=256, workers=5,
         opt.step()
         sched.step()
         total += loss.item()
+        if PROFILE:  # NUNCHI_PROFILE=1: where a step's time goes (queue wait, copy to GPU, compute)
+            prof[0] += t1 - t0; prof[1] += t2 - t1; prof[2] += time.perf_counter() - t2
         n_seen += b[0].size(0)
         if step % 50 == 0:
             now = time.time()
             say(f"step {step}/{steps} loss {total / 50:.4f}  {50 * batch / (now - t_last):,.0f} prefixes/s  "
                 f"queue {queue.qsize()}  ETA {(now - t_start) / (step - first + 1) * (steps - step) / 60:.1f} min")
+            if PROFILE:
+                say(f"  per step: queue wait {prof[0] * 20:.0f} ms, copy {prof[1] * 20:.0f} ms, compute {prof[2] * 20:.0f} ms")
+                prof[:] = [0.0, 0.0, 0.0]
             total, t_last = 0.0, now
         if step % eval_every == 0 or step == steps:
             v, vp, pa = valid_loss(model, valid, dev), valid_loss(model, particles, dev), path_acc(model, particles, dev)

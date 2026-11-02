@@ -19,6 +19,7 @@ import random
 import sys
 import time
 
+import numpy as np
 import torch
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
@@ -117,6 +118,27 @@ def lowered(w):
     return "".join(c.lower() if lab == EN else c for c, lab in zip(k, y)), y
 
 
+class LineStore:
+    """A read-only list of lines kept as one UTF-8 buffer + offsets. Python str objects took ~3x the
+    memory, and every read of one rewrites its reference count, so forked data workers could not share
+    them: three workers held 1.8 GB each. Supports len(), [i], iteration (random.choice / choices work)."""
+
+    def __init__(self, lines):
+        enc = [line.encode("utf-8") for line in lines]
+        self.off = np.zeros(len(enc) + 1, np.int64)
+        np.cumsum([len(b) for b in enc], out=self.off[1:])
+        self.buf = b"".join(enc)
+
+    def __len__(self):
+        return len(self.off) - 1
+
+    def __getitem__(self, i):
+        return self.buf[self.off[i]:self.off[i + 1]].decode("utf-8")
+
+    def __iter__(self):
+        return (self[i] for i in range(len(self)))
+
+
 def load_sentences():
     """{source: (train, valid)} of raw lines (converted when sampled); 1% held out for valid by hash."""
     out = {}
@@ -128,7 +150,7 @@ def load_sentences():
             for line in f:
                 line = line.rstrip("\n")
                 (va if int(hashlib.md5(line.encode()).hexdigest(), 16) % 100 == 0 else tr).append(line)
-        out[source] = (tr, va)
+        out[source] = (LineStore(tr), va)
         print(f"  {source}: train {len(tr):,} valid {len(va):,}", flush=True)
     return out
 
@@ -151,8 +173,8 @@ class Sampler:
         scale = WORDS_MIXED_SHARE * sum(w for _, _, w in rows) / max(sum(math.sqrt(c) for *_, c in mixed["train"]), 1)
         self.words_w = [w for _, _, w in rows] + [math.sqrt(c) * scale for *_, c in mixed["train"]]
         sizes = {s: math.sqrt(len(self.data[s][0])) for s in KO_SOURCES}
-        self.kmix = [l for src in ("nsmc", "kcbert") for l in self.data[src][0]
-                     if any(c.isascii() and c.isalpha() for c in l)]
+        self.kmix = LineStore([l for src in ("nsmc", "kcbert") for l in self.data[src][0]
+                               if any(c.isascii() and c.isalpha() for c in l)])
         self.pools = {"kmix": self.kmix}
         for name in ("web", "loan", "trans_en", "trans_ko"):
             self.pools[name] = []
@@ -160,7 +182,7 @@ class Sampler:
                 # NUNCHI_WEB_FILE: another web pool (e.g. built from more mC4 shards) in place of web.txt
                 fname = os.environ.get("NUNCHI_WEB_FILE", "web.txt") if name == "web" else f"{name}.txt"
                 with (SENT / fname).open(encoding="utf-8") as f:
-                    self.pools[name] = [line.rstrip("\n") for line in f if line.strip()]
+                    self.pools[name] = LineStore([line.rstrip("\n") for line in f if line.strip()])
         self.web, self.loan = self.pools["web"], self.pools["loan"]
         self.pool_cw = {}
         if SHORT_EN_X != 1 or ":" in SHORT_EN_MODE or AMB_KO_X != 1:

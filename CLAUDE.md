@@ -7,9 +7,11 @@ Read first: `docs/EXPERIMENTS.md` (state, open problems, next steps, log) and `d
 judge a difference). Models by name: `models/registry.json` + `nunchi/models.load`.
 
 ## Environment
-- Windows: `.venv-rocm/Scripts/python` (ROCm, AMD RX 9060 XT). WSL Ubuntu-24.04: `/root/venv-rocm`, ~11% faster.
+- Windows: `.venv-rocm/Scripts/python` (ROCm, AMD RX 9060 XT) — where training runs. WSL `Ubuntu-ml` (`/root/venv-rocm`,
+  `source` its activate first) trains at the same speed after the fixes in docs/EXPERIMENTS.md (Speed); no reason to move.
 - `data/` and `models/*` are not in git; rebuild data with the commands in docs/EXPERIMENTS.md.
-- Training: `python -u experiments/run.py experiments/configs/<name>.json` (10k steps ~17 min, 51k ~85 min).
+- Training: `python -u experiments/run.py experiments/configs/<name>.json` (10k steps ~15 min, 51k ~75 min).
+  `NUNCHI_PROFILE=1` logs where a step's time goes (queue wait, copy to GPU, compute).
 - GPU memory is capped at 70% in training (`NUNCHI_VRAM`); a full card once froze the PC.
 
 ## Rules
