@@ -1,0 +1,195 @@
+{
+ "_scheme": "TX = decision at Space (stream Transformer); RV = reviser that may change a word once more words are typed; a variant of one version gets a suffix (TX4-lr3). left / right: words of context before / after a word that the model is built for (null = the whole input). split_threshold / act_threshold: tuned on the dev sets for that model (split a word whose best path changes language when its probability is at least this; decide at Space when sure at least this, else after one more word); missing = code defaults. nunchi/models.py loads a model by name from here. TR = one model that decides at Space and revises (full window, every word labelled). Suffixes: -long = 51k training steps, -xlong = 102k (default 17k for TX/RV); short_* = 10k-step screening runs (docs/EXPERIMENTS.md). digits: own key ids for 0-9 (models trained on the v2/v3 pools that keep numbers); data: training pools (v1: numbers removed, v3: numbers kept, code-only web lines thinned); parent: the model it changes; steps: training steps.",
+ "models": [
+  {
+   "name": "TX1",
+   "file": "tx1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": 1,
+   "status": "dropped",
+   "what": "whole-sentence context, every word labelled (words saw several words ahead in training)"
+  },
+  {
+   "name": "TX2",
+   "file": "tx2.pt",
+   "kind": "stream",
+   "left": 3,
+   "right": 1,
+   "status": "dropped",
+   "what": "3 words of left context, one labelled word per stream, mC4 added"
+  },
+  {
+   "name": "TX2-full",
+   "file": "tx2_full.pt",
+   "kind": "stream",
+   "left": null,
+   "right": 1,
+   "status": "experiment",
+   "what": "TX2 with all left context (context-length comparison)"
+  },
+  {
+   "name": "TX3",
+   "file": "tx3.pt",
+   "kind": "stream",
+   "left": 3,
+   "right": 1,
+   "split_threshold": 0.7,
+   "act_threshold": 0.99,
+   "status": "previous main",
+   "what": "TX2 + wrong-mode filter by frequency, loanword and translation-swapped sentences; ONNX: ctx_left3_v2.onnx (kept as is)"
+  },
+  {
+   "name": "TX4",
+   "file": "tx4.pt",
+   "kind": "stream",
+   "left": 3,
+   "right": 1,
+   "split_threshold": 0.7,
+   "act_threshold": 0.7,
+   "status": "previous main",
+   "what": "TX3 + loanwords as ordinary translations, web English+Korean words, 30% lower-case augmentation"
+  },
+  {
+   "name": "TX4-lr3",
+   "file": "tx4_lr3.pt",
+   "kind": "stream",
+   "left": 3,
+   "right": 1,
+   "status": "dropped",
+   "what": "TX4 data, LR 0.003, 6,000 steps"
+  },
+  {
+   "name": "TX4-R5",
+   "file": "tx4_r5.pt",
+   "kind": "stream",
+   "left": 3,
+   "right": 5,
+   "status": "dropped",
+   "what": "TX4 data, one labelled word with 0-5 words after it"
+  },
+  {
+   "name": "RV0",
+   "file": "rv0.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "status": "reviser baseline",
+   "what": "TX4 data, every typed word labelled, full attention in the window (decides now and revises)"
+  },
+  {
+   "name": "RV1",
+   "file": "rv1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "status": "reviser",
+   "what": "RV0 but the word just typed is not labelled: revision only"
+  },
+  {
+   "name": "HMM",
+   "file": "tagger.pt",
+   "status": "baseline",
+   "what": "key-level word tagger (BiLSTM-CRF) + 2-state HMM"
+  },
+  {
+   "name": "LSTM",
+   "file": "lstm.pt",
+   "status": "dropped",
+   "what": "word tagger + sentence BiLSTM"
+  },
+  {
+   "name": "fastText v3",
+   "file": "ft_shape_aug.ftz",
+   "status": "record",
+   "what": "word classifier with shape token and typo augmentation"
+  },
+  {
+   "name": "TX4-long",
+   "file": "tx4_long.pt",
+   "kind": "stream",
+   "left": 3,
+   "right": 1,
+   "parent": "TX4",
+   "steps": 51000,
+   "data": "v1 + web50",
+   "status": "record",
+   "what": "TX4 recipe, 3x steps, 5x web pool: real 56 -> 48 (dev, numbers removed)"
+  },
+  {
+   "name": "TX4-long-s1",
+   "file": "tx4_long_s1.pt",
+   "kind": "stream",
+   "left": 3,
+   "right": 1,
+   "parent": "TX4-long",
+   "steps": 51000,
+   "data": "v1 + web50",
+   "status": "record",
+   "what": "TX4-long, seed 1: the seed noise at 51k"
+  },
+  {
+   "name": "RV1-long",
+   "file": "rv1_long.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "parent": "RV1",
+   "steps": 51000,
+   "data": "v1 + web50",
+   "status": "reviser",
+   "what": "RV1 recipe at 51k: better reviser than RV1 without a gate (net +8 real vs -1)"
+  },
+  {
+   "name": "TR-long",
+   "file": "tr_long.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "parent": "RV0",
+   "steps": 51000,
+   "data": "v1 + web50",
+   "status": "record",
+   "what": "TR recipe (decides and revises in one model) at 51k: decides at Space better than TX4-long (38 vs 46 real)"
+  },
+  {
+   "name": "TR2-long",
+   "file": "tr2_long.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "parent": "TR-long",
+   "steps": 51000,
+   "data": "v2",
+   "status": "dropped",
+   "what": "v2 pools keep numbers + digit keys: number words 375 -> 41 wrong, but code-only web lines thinned the English"
+  },
+  {
+   "name": "TR3-long",
+   "file": "tr3_long.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "parent": "TR2-long",
+   "steps": 51000,
+   "data": "v3",
+   "status": "main",
+   "what": "v3 pools (word caps count real English only, code-only web lines 30%): the reference on the number-kept sets"
+  },
+  {
+   "name": "TR3-xlong",
+   "file": "tr3_xlong.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "parent": "TR3-long",
+   "steps": 102000,
+   "data": "v3",
+   "status": "paused at 38k (checkpoint kept)",
+   "what": "TR3 at 102k; paused: scale comes after data / loss / policy"
+  }
+ ]
+}

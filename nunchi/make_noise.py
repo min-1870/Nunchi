@@ -42,6 +42,14 @@ def typo(keys: str, rnd: random.Random) -> str:
     return keys
 
 
+TYPO_P = 0.15  # share of words given one typo in the "+typo" eval sets
+
+
+def with_typos(sents, rnd):
+    """Same sentences as (label, keys) with one keyboard typo in some words (TYPO_P of those of 2+ keys)."""
+    return [[(lab, typo(k, rnd) if rnd.random() < TYPO_P and len(k) >= 2 else k) for lab, k in s] for s in sents]
+
+
 def code_token(words: list[str], rnd: random.Random) -> str:
     a, b = rnd.sample(words, 2)
     style = rnd.choice(["camel", "snake", "concat", "digit", "pascal"])

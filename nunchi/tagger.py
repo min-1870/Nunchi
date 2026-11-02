@@ -27,7 +27,7 @@ from torch import nn
 
 from nunchi.dubeolsik import to_keys
 from nunchi.make_noise import NEIGHBORS
-from nunchi.train_fasttext import ACT_T, MODELS, load
+from nunchi.train_fasttext import ACT_T, MODELS, ROOT, load
 
 KO_SOURCES = ("nsmc", "kcbert", "tatoeba")
 MIXED = re.compile(r"^([A-Za-z]+)([가-힣]+)$")
@@ -65,17 +65,23 @@ def pure_rows(split):
 def mixed_rows():
     """Real English+Korean tokens -> {split: [(keys, labels, count)]}, and train endings with counts."""
     from nunchi.count_corpus import load as load_counts
+    from nunchi.sentence_data import wrong_mode
 
     counts = Counter()
     for s in KO_SOURCES:
         counts.update(load_counts(s, "mixed"))
-    # "English" that types a known Korean word is Korean typed in the wrong mode (tk는 = 사는)
+    # and the mC4 pool, if built: web text has English + nouns too (K댄스, e북), not only particles
+    web = ROOT / "data" / "sent" / "web.txt"
+    if web.exists():
+        with web.open(encoding="utf-8") as f:
+            counts.update(t for line in f for t in line.split() if MIXED.match(t))
+    # "English" that was most likely Korean typed in the wrong mode (tk는 = 사는); B급, SK브로드밴드 stay
     ko_keys = {r["keys"].lower() for split in ("train", "valid", "test") for r in load(split) if r["lab"] == "ko"}
     out = {"train": [], "valid": [], "test": []}
     endings = Counter()
     for tok, c in counts.items():
         m = MIXED.match(tok)
-        if c < MIN_MIXED or not m or MASK.match(m.group(1)) or m.group(1).lower() in ko_keys:
+        if c < MIN_MIXED or not m or MASK.match(m.group(1)) or wrong_mode(m.group(1), ko_keys):
             continue
         en, ko = m.group(1), to_keys(m.group(2))
         split = split_of(en.lower())

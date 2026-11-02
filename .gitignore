@@ -6,5 +6,12 @@ __pycache__/
 # corpus downloads and generated datasets (rebuild with nunchi.make_data / make_noise)
 data/
 
-# trained models (rebuild with nunchi.train_fasttext / compare)
-models/
+# trained models (rebuild with nunchi.train_fasttext / compare / stream_tagger); the registry of names,
+# context and tuned thresholds is kept
+models/*
+!models/registry.json
+
+
+# experiment logs (each run appends)
+experiments/logs/*
+!experiments/logs/.gitkeep
