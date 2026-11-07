@@ -1,12 +1,14 @@
-"""Draw Nunchi's icons (a text cursor with a dot) and write them as .ico files next to this script.
+"""Draw Nunchi's icons (two lanes swapping places) and write them as .ico files next to this script.
 
-    app.ico          the exe: dark rounded tile, white cursor, coral dot
+    app.ico          the exe: dark rounded tile, coral lane rising, white lane falling over it with a gap
     tray_<bg>_<on|off>.ico
-                     tray, for a dark or light taskbar: cursor in the taskbar's ink, coral dot; off: the dot
-                     is gone and the cursor greyed (on and off differ in shape and colour)
+                     tray, no tile: the falling lane in the taskbar's ink, the coral lane cut where it passes
+                     under; off: the coral lane is gone and the other is grey (on and off differ in shape and
+                     colour)
 
-Shapes are drawn as distance fields on an 8x grid per pixel and averaged, so every size is drawn, not
-scaled. Needs numpy only (PNG and ICO are written by hand).
+The shapes follow branding/nunchi-icon.svg (app) and branding/nunchi-mark*.svg (tray). Each is drawn as a
+distance field on an 8x grid per pixel and averaged, so every size is drawn, not scaled. Needs numpy only
+(PNG and ICO are written by hand).
 
     .venv/Scripts/python app/win/icons/make_icons.py
 """
@@ -19,17 +21,18 @@ import numpy as np
 OUT = Path(__file__).parent
 SS = 8  # samples per pixel per axis
 
-# the glyph, in a 24 x 24 box: an I-beam (stem at x, from top to bottom, serifs reaching half_serif to each
-# side) and a dot
-STROKE = 2.2
-STEM_X, TOP, BOTTOM, HALF_SERIF = 10.5, 3.5, 20.5, 2.5
-DOT = ((18, 7), 2.6)
-
-TILE = "#2C2C2A"
+TILE = "#1C1C1B"
 CORAL = "#D85A30"
 WHITE = "#FFFFFF"
-INK = "#2C2C2A"
+INK = "#1C1C1B"
 GREY = "#888780"
+
+# the lanes of branding/nunchi-icon.svg and nunchi-mark*.svg (96 x 96 units): stroke width, and width of the gap
+# cut around the top lane. The lanes span x 12..84 and y 28..68.
+UP = ((18, 62), (42, 62), (54, 34), (78, 34))
+DOWN = ((18, 34), (42, 34), (54, 62), (78, 62))
+STROKE, CUT = 12, 20
+MARK_BOX = (12, 28, 84, 68)
 
 
 def rgb(hex_):
@@ -38,20 +41,31 @@ def rgb(hex_):
 
 def grid(size):
     """Sample centres in pixel units, shape (size*SS, size*SS)."""
-    t = (np.arange(size * SS) + 0.5) / SS
+    t = (np.arange(size * SS, dtype=np.float32) + 0.5) / SS
     return np.meshgrid(t, t)
 
 
-def segment(x, y, a, b, r):
-    ax, ay = a
-    bx, by = b
-    dx, dy = bx - ax, by - ay
-    h = np.clip(((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy), 0, 1)
-    return np.hypot(x - ax - h * dx, y - ay - h * dy) <= r
+def bezier(p, n=96):
+    """Points along a cubic Bezier."""
+    t = np.linspace(0, 1, n)[:, None]
+    p = np.array(p, dtype=float)
+    return ((1 - t) ** 3 * p[0] + 3 * (1 - t) ** 2 * t * p[1] + 3 * (1 - t) * t ** 2 * p[2] + t ** 3 * p[3])
 
 
-def circle(x, y, c, r):
-    return np.hypot(x - c[0], y - c[1]) <= r
+def stroke(x, y, points, r):
+    """Inside a round-capped stroke of radius r along the polyline `points` (pixel units)."""
+    inside = np.zeros(x.shape, bool)
+    for (ax, ay), (bx, by) in zip(points[:-1], points[1:]):
+        # only the samples near this segment
+        x0, x1 = min(ax, bx) - r, max(ax, bx) + r
+        y0, y1 = min(ay, by) - r, max(ay, by) + r
+        cols = slice(max(0, int(x0 * SS)), int(x1 * SS) + 2)
+        rows = slice(max(0, int(y0 * SS)), int(y1 * SS) + 2)
+        px, py = x[rows, cols], y[rows, cols]
+        dx, dy = bx - ax, by - ay
+        h = np.clip(((px - ax) * dx + (py - ay) * dy) / max(dx * dx + dy * dy, 1e-12), 0, 1)
+        inside[rows, cols] |= np.hypot(px - ax - h * dx, py - ay - h * dy) <= r
+    return inside
 
 
 def rounded_rect(x, y, x0, y0, x1, y1, r):
@@ -61,14 +75,18 @@ def rounded_rect(x, y, x0, y0, x1, y1, r):
 
 
 def render(size, layers):
-    """layers: [(mask fn(x, y) in pixel units, colour)], painted in order -> RGBA uint8 (size, size, 4)."""
+    """layers: [(mask fn(x, y) in pixel units, colour or None to erase)], painted in order -> RGBA uint8."""
     x, y = grid(size)
-    col = np.zeros(x.shape + (3,))
-    alpha = np.zeros(x.shape)
+    col = np.zeros(x.shape + (3,), np.float32)
+    alpha = np.zeros(x.shape, np.float32)
     for fn, colour in layers:
         m = fn(x, y)
-        col[m] = rgb(colour)
-        alpha[m] = 1
+        if colour is None:
+            alpha[m] = 0
+        else:
+            col[m] = rgb(colour)
+            alpha[m] = 1
+
     # average premultiplied colour over each pixel's samples
     def down(a):
         return a.reshape(size, SS, size, SS, *a.shape[2:]).mean(axis=(1, 3))
@@ -78,35 +96,33 @@ def render(size, layers):
     return np.dstack([c, a]).clip(0, 1).__mul__(255).round().astype(np.uint8)
 
 
-def glyph(scale, ox, oy, cursor, dot, hint=False):
-    """Mask functions for the glyph drawn at `scale` pixels per unit, offset (ox, oy). hint: snap the cursor's
-    strokes to whole pixels (small sizes; otherwise a 1.5 px stroke smears over two pixels)."""
-    width = max(1, round(STROKE * scale)) if hint else STROKE * scale
-
-    def snap(v):
-        return round(v - width / 2) + width / 2 if hint else v
-
-    # serifs are placed from the snapped stem, so they stay centred on it
-    x = snap(ox + STEM_X * scale)
-    top, bottom = snap(oy + TOP * scale), snap(oy + BOTTOM * scale)
-    half = max(1, round(HALF_SERIF * scale)) if hint else HALF_SERIF * scale
-    strokes = [((x, top), (x, bottom)), ((x - half, top), (x + half, top)), ((x - half, bottom), (x + half, bottom))]
-    layers = [(lambda px, py, a=a, b=b: segment(px, py, a, b, width / 2), cursor) for a, b in strokes]
-    if dot:
-        c = (ox + DOT[0][0] * scale, oy + DOT[0][1] * scale)
-        layers.append((lambda px, py: circle(px, py, c, DOT[1] * scale), dot))
-    return layers
+def lane(curve, k, ox, oy):
+    return [(px * k + ox, py * k + oy) for px, py in bezier(curve)]
 
 
 def app_icon(size):
-    # tile 96 with the glyph 56 inside at 20, as in the drafts
     k = size / 96
-    tile = (lambda x, y: rounded_rect(x, y, 0, 0, size, size, 22 * k), TILE)
-    return render(size, [tile] + glyph(56 / 24 * k, 20 * k, 20 * k, WHITE, CORAL, hint=size <= 48))
+    up, down = lane(UP, k, 0, 0), lane(DOWN, k, 0, 0)
+    return render(size, [
+        (lambda x, y: rounded_rect(x, y, 0, 0, size, size, 22 * k), TILE),
+        (lambda x, y: stroke(x, y, up, STROKE * k / 2), CORAL),
+        (lambda x, y: stroke(x, y, down, CUT * k / 2), TILE),
+        (lambda x, y: stroke(x, y, down, STROKE * k / 2), WHITE),
+    ])
 
 
 def tray_icon(size, ink, on):
-    return render(size, glyph(size / 24, 0, 0, ink if on else GREY, CORAL if on else None, hint=True))
+    # the mark's box fills the icon's width, centred vertically
+    x0, y0, x1, y1 = MARK_BOX
+    k = size / (x1 - x0)
+    ox, oy = -x0 * k, (size - (y1 - y0) * k) / 2 - y0 * k
+    up, down = lane(UP, k, ox, oy), lane(DOWN, k, ox, oy)
+    layers = []
+    if on:
+        layers += [(lambda x, y: stroke(x, y, up, STROKE * k / 2), CORAL),
+                   (lambda x, y: stroke(x, y, down, CUT * k / 2), None)]
+    layers.append((lambda x, y: stroke(x, y, down, STROKE * k / 2), ink if on else GREY))
+    return render(size, layers)
 
 
 def png(img):

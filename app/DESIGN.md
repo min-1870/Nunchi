@@ -278,10 +278,10 @@ other scripts end words).
   shell deletes it a moment after the process exits).
 - Tested: install from a folder that is then deleted, update over a running copy, uninstall; the Notepad
   test (with arguments) installs nothing.
-- Icon: a text cursor with a dot (noticing while you type). The exe's icon is a dark tile with a coral dot;
-  the tray icon has the cursor in white or dark to match the taskbar (re-read on a theme change) and the coral dot; when
-  stopped the dot goes and the cursor greys. Drawn by `win/icons/make_icons.py` (strokes snapped to whole
-  pixels at tray sizes), compiled in through `win/nunchi.rc`.
+- Icon: two lanes swapping places (the "swap" design, same as the website). The exe's icon is a dark tile with
+  a coral lane rising and a white lane falling over it; the tray icon has no tile: the falling lane in white or dark to
+  match the taskbar (re-read on a theme change), the coral lane cut where it passes under; when stopped the coral lane
+  goes and the other greys. Drawn by `win/icons/make_icons.py`, compiled in through `win/nunchi.rc`.
 - The model is `models/tr5n_102k.onnx` next to the exe or in a folder above it, or the path given as the first
   argument; an optional second argument is the threshold.
 
