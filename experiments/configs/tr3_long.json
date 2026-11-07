@@ -18,8 +18,8 @@
  },
  "runs": [
   [
-   "TR3-long",
-   "tr3_long.pt",
+   "TR3-51K",
+   "tr3_51k.pt",
    {}
   ]
  ],

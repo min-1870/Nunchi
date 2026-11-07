@@ -18,44 +18,44 @@
  },
  "runs": [
   [
-   "S0",
-   "short_s0.pt",
+   "TR3-10K",
+   "tr3_10k.pt",
    {}
   ],
   [
-   "S0-s1",
-   "short_s0_s1.pt",
+   "TR3-10K-s1",
+   "tr3_10k_s1.pt",
    {
     "NUNCHI_SEED": "1"
    }
   ],
   [
-   "R3-2",
-   "short_r3_2.pt",
+   "R3-2-10K",
+   "r3_2_10k.pt",
    {
     "NUNCHI_SHORT_EN_MODE": "amb:4+switch:2",
     "NUNCHI_AMB_KO_X": "4"
    }
   ],
   [
-   "R3-2c",
-   "short_r3_2c.pt",
+   "R3-2c-10K",
+   "r3_2c_10k.pt",
    {
     "NUNCHI_SHORT_EN_MODE": "amb:4+switch:2+code:2",
     "NUNCHI_AMB_KO_X": "4"
    }
   ],
   [
-   "R3-2e",
-   "short_r3_2e.pt",
+   "R3-2e-10K",
+   "r3_2e_10k.pt",
    {
     "NUNCHI_SHORT_EN_MODE": "amb:4+switch:2+plain3:1.5",
     "NUNCHI_AMB_KO_X": "4"
    }
   ],
   [
-   "R3-2s",
-   "short_r3_2s.pt",
+   "R3-2s-10K",
+   "r3_2s_10k.pt",
    {
     "NUNCHI_SHORT_EN_MODE": "amb:3+switch:2",
     "NUNCHI_AMB_KO_X": "4"

@@ -6,12 +6,14 @@
           CRF Viterbi on them (viterbi() below is the reference), thresholds
 
 The model's context comes from models/registry.json: a decider (TX: right = 1) judges the last word typed;
-a reviser (RV: right = null, the whole window) judges the word before it, once the last word is typed.
+a reviser (RV: right = null, the whole window) judges the word before it, once the last word is typed; a TR
+model (whole window, every word labelled) does both, so it is checked both ways and its JSON says
+"revises": true.
 
 check compares graph + viterbi() against stream_tagger.decide() on held-out sentences, and golden writes
 <name>_golden.json: streams as the app builds them, with decide()'s output, for the app's own tests.
 
-    .venv/Scripts/python -m nunchi.export_onnx <name, e.g. tx4 or rv1> [sentences per source]
+    .venv/Scripts/python -m nunchi.export_onnx <file name, e.g. tr4_51k or tx4_long> [sentences per source]
 """
 import json
 import random
@@ -23,7 +25,8 @@ import torch
 from torch import nn
 
 from nunchi.sentence_tagger import MAX_KEYS, load_sentences, to_sentence
-from nunchi.stream_tagger import MAX_T, POS, SPACE, StreamTagger, cut, decide, encode
+from nunchi.stream_tagger import DIGIT0, MAX_T, POS, SPACE, StreamTagger, cut, decide
+from nunchi.stream_tagger import encode as encode_digits
 from nunchi.tagger import CHARS, EN, KO
 from nunchi.train_fasttext import ACT_T, MODELS
 
@@ -40,6 +43,23 @@ TUNED = {
 # longer runs of the same models, not in the registry yet: same context and thresholds (not re-swept)
 TUNED["tx4_long"] = TUNED["tx4"]
 TUNED["rv1_long"] = TUNED["rv1"]
+# one model deciding and revising: the app's thresholds for both until swept for it (the model session's own
+# revision rule is >= 0.95 three words after; the app revises one word after, strictly)
+TUNED["tr4_51k"] = {"split": 0.7, "targets": {}, "act": 0.99, "revise_act": 0.99}
+# TR5n-102K, tuned with the app rule (experiments/logs/app_tune.py, 2026-11-05): 550 settings on dev, chosen with a
+# broken word (right as typed, changed by the app) counted as 2-3 missed ones; checked once on test. Dev / test wrong
+# 2782 / 2814 at 0.99 / 0.99 / 0.7 -> 1550 / 1587 here; broken 122 / 86 -> 236 / 228. Costs: split words (fused,
+# English + particle) and key collisions a few %p worse, every switching cell and the main sets better.
+# early_act: switching in the middle of a word (the app's key()), a prefix, not yet the word (experiments/logs/
+# early_tune.py): at 0.99 instead of act 0.85, 57% fewer wrong mid-word switches (좀ㅅ while typing what), fewer
+# broken words and fewer wrong at Space.
+TUNED["tr5n_102k"] = {"split": 0.9, "targets": {}, "act": 0.85, "revise_act": 0.8, "early_act": 0.99}
+
+DIGITS = False  # set by load(): encode digit keys with their own ids (TR2 on)
+
+
+def encode(batch, targets=None):
+    return encode_digits(batch, targets, digits=DIGITS)
 
 
 class Graph(nn.Module):
@@ -90,19 +110,29 @@ def viterbi(em, trans, start, end):
 
 
 def load(name):
-    from nunchi.models import spec
-    try:
-        s = spec(name.upper())
-    except KeyError:  # a variant not registered yet (tx4_long): the base model's context, its own file
-        s = dict(spec(name.split("_")[0].upper()), file=f"{name}.pt")
-    model = StreamTagger(left=s["left"], right=s["right"])
+    """The model in models/<name>.pt, built as its registry entry says (found by file name)."""
+    global DIGITS
+    from nunchi.models import REGISTRY
+    entries = json.loads(REGISTRY.read_text(encoding="utf-8"))["models"]
+    s = next((e for e in entries if e.get("file") == f"{name}.pt"), None)
+    if s is None:  # a variant not registered under its file (tx4_long): the base model's context
+        s = dict(next(e for e in entries if e["name"].startswith(name.split("_")[0].upper())), file=f"{name}.pt")
+    size = dict(zip(("d", "heads", "layers", "ff"), s["size"])) if s.get("size") else {}
+    model = StreamTagger(left=s["left"], right=s["right"], digits=s.get("digits", False), **size)
     model.load_state_dict(torch.load(MODELS / s["file"], map_location="cpu"))
+    model.tr = s["name"].startswith("TR")
+    DIGITS = model.digits
     return model.eval()
 
 
 def judged_from_end(model):
-    """0: the last word (a decider); 1: the word before it (a reviser, which sees the whole window)."""
-    return 1 if model.right is None else 0
+    """0: the last word (a decider, or a TR model deciding); 1: the word before it (a reviser)."""
+    return 1 if model.right is None and not model.tr else 0
+
+
+def backs(model):
+    """Which words from the end the app judges with this model."""
+    return [0, 1] if model.tr else [judged_from_end(model)]
 
 
 def export(name):
@@ -120,7 +150,8 @@ def export(name):
         "model": name,
         "inputs": "ids, pos, wpos, widx: int64 (batch, keys); output emissions: float32 (batch, keys, 2)",
         "labels": {"0": "en", "1": "ko"},
-        "vocab": {"pad": 0, "other": 1, "chars": CHARS, "first_char_id": 2, "space": SPACE},
+        "vocab": {"pad": 0, "other": 1, "chars": CHARS, "first_char_id": 2, "space": SPACE,
+                  "digit0": DIGIT0 if model.digits else None},
         "max_keys_per_word": MAX_KEYS,
         "max_stream_keys": MAX_T,
         "pos_table": POS,
@@ -128,9 +159,12 @@ def export(name):
         "left_words": left,
         "right_words": model.right,
         "judged_from_end": judged_from_end(model),
+        "revises": model.tr,
+        "revise_act_threshold": TUNED[name].get("revise_act"),
         "lookahead": 0,
         "temperature": 1.0,
         "act_threshold": TUNED[name].get("act", DEFAULT_THRESHOLD),
+        "early_act_threshold": TUNED[name].get("early_act"),
         "split_threshold": TUNED[name]["split"],
         "targets": TUNED[name]["targets"],
         "crf": {k: getattr(model, k).detach().tolist() for k in ("trans", "start", "end")},
@@ -160,17 +194,18 @@ def golden(name, n=400, seed=1):
     """Write <name>_golden.json: per case the words typed so far, the stream the model sees (after cut and
     trimming) and decide()'s path and probabilities for the judged word (see judged_from_end)."""
     model = load(name)
-    left, back = model.left, judged_from_end(model)
-    rnd = random.Random(seed)
-    sents = [s for s in held_out(200, seed) if len(s) > back]
-    streams = [s[:rnd.randrange(back, len(s)) + 1] for s in rnd.sample(sents, n)]
-    streams += [e for e in EDGE + [["dkssud", "i", "think"], ["i", "think"]] if len(e) > back]
-    res = decide(model, streams, [len(s) - 1 - back for s in streams])
+    left = model.left
     cases = []
-    for s, (path, pb, pko, pen) in zip(streams, res):
-        ids, pos, wpos, widx = (x[0].tolist() for x in encode([[(k, [0] * len(k)) for k in cut(s, back, left)]])[:4])
-        cases.append({"words": s, "ids": ids, "pos": pos, "wpos": wpos, "widx": widx,
-                      "path": path, "p_best": pb, "p_ko": pko, "p_en": pen})
+    for back in backs(model):
+        rnd = random.Random(seed)
+        sents = [s for s in held_out(200, seed) if len(s) > back]
+        streams = [s[:rnd.randrange(back, len(s)) + 1] for s in rnd.sample(sents, n)]
+        streams += [e for e in EDGE + [["dkssud", "i", "think"], ["i", "think"]] if len(e) > back]
+        res = decide(model, streams, [len(s) - 1 - back for s in streams])
+        for s, (path, pb, pko, pen) in zip(streams, res):
+            ids, pos, wpos, widx = (x[0].tolist() for x in encode([[(k, [0] * len(k)) for k in cut(s, back, left)]])[:4])
+            cases.append({"words": s, "back": back, "ids": ids, "pos": pos, "wpos": wpos, "widx": widx,
+                          "path": path, "p_best": pb, "p_ko": pko, "p_en": pen})
     out = MODELS / f"{name}_golden.json"
     out.write_text(json.dumps(cases), encoding="utf-8")
     print(f"wrote {out} ({len(cases)} cases)", flush=True)
@@ -185,10 +220,16 @@ def golden(name, n=400, seed=1):
 
 
 def check(name, per_source=300, seed=0):
+    model = load(name)
+    for back in backs(model):
+        print(f"judging the word {back} from the end", flush=True)
+        check_back(model, name, back, per_source, seed)
+
+
+def check_back(model, name, back, per_source, seed):
     import onnxruntime as ort
 
-    model = load(name)
-    left, back = model.left, judged_from_end(model)
+    left = model.left
     sess = ort.InferenceSession(str(MODELS / f"{name}.onnx"), providers=["CPUExecutionProvider"])
     crf = [getattr(model, k).detach().numpy().astype(np.float64) for k in ("trans", "start", "end")]
     sents = held_out(per_source, seed)

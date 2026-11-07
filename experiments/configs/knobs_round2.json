@@ -1,0 +1,80 @@
+{
+ "steps": 10000,
+ "base": {
+  "NUNCHI_KO": "0.25",
+  "NUNCHI_EN": "0.20",
+  "NUNCHI_WORDS": "0.15",
+  "NUNCHI_SYNTH": "0",
+  "NUNCHI_KMIX": "0.1132",
+  "NUNCHI_WEB": "0.1868",
+  "NUNCHI_LOAN": "0",
+  "NUNCHI_TRANS_KO": "0.05",
+  "NUNCHI_TRANS_EN": "0.05",
+  "NUNCHI_LOWER_P": "0.3",
+  "NUNCHI_WEB_FILE": "web50_v3.txt",
+  "NUNCHI_POOL_SUFFIX": "_v3",
+  "NUNCHI_DIGITS": "1",
+  "NUNCHI_RIGHT": "all"
+ },
+ "runs": [
+  [
+   "R2-10K",
+   "r2_10k.pt",
+   {
+    "NUNCHI_EN_MK": "0.070",
+    "NUNCHI_AMB_KO_X": "1.45",
+    "NUNCHI_ENTRY_W": "2.09",
+    "NUNCHI_SHORT_EN_MODE": "amb:1.41+switch:1.86"
+   }
+  ],
+  [
+   "R2-10K-s1",
+   "r2_10k_s1.pt",
+   {
+    "NUNCHI_EN_MK": "0.070",
+    "NUNCHI_AMB_KO_X": "1.45",
+    "NUNCHI_ENTRY_W": "2.09",
+    "NUNCHI_SHORT_EN_MODE": "amb:1.41+switch:1.86",
+    "NUNCHI_SEED": "1"
+   }
+  ],
+  [
+   "M02-10K-s1",
+   "m02_10k_s1.pt",
+   {
+    "NUNCHI_EN_MK": "0.114",
+    "NUNCHI_AMB_KO_X": "1.86",
+    "NUNCHI_ENTRY_W": "2.25",
+    "NUNCHI_SHORT_EN_MODE": "amb:1.66+switch:2.49",
+    "NUNCHI_SEED": "1"
+   }
+  ]
+ ],
+ "evals": [],
+ "knobs": {
+  "R2-10K": {
+   "en_mk": 0.07,
+   "amb": 1.407,
+   "switch": 1.856,
+   "code": 1.0,
+   "amb_ko": 1.454,
+   "entry": 2.087
+  },
+  "R2-10K-s1": {
+   "en_mk": 0.07,
+   "amb": 1.407,
+   "switch": 1.856,
+   "code": 1.0,
+   "amb_ko": 1.454,
+   "entry": 2.087
+  },
+  "M02-10K-s1": {
+   "en_mk": 0.114,
+   "amb": 1.662,
+   "switch": 2.486,
+   "code": 1.0,
+   "amb_ko": 1.857,
+   "entry": 2.245
+  }
+ }
+}

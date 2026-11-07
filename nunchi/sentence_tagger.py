@@ -49,7 +49,10 @@ SHARE = {"ko": float(os.environ.get("NUNCHI_KO", 0.40)), "en": float(os.environ.
          # a word swapped for its translation (translations.py): English with Korean words (trans_en),
          # Korean with an English noun or adverb (trans_ko); replaces random insertion (synth)
          "trans_en": float(os.environ.get("NUNCHI_TRANS_EN", 0.0)),
-         "trans_ko": float(os.environ.get("NUNCHI_TRANS_KO", 0.0))}
+         "trans_ko": float(os.environ.get("NUNCHI_TRANS_KO", 0.0)),
+         # English with Korean interjections / jamo / conjugated words put in (data/sent/en_marked.txt,
+         # en_marked.py): the only English-base text with ㅋㅋ / ㅠㅠ in it
+         "en_mk": float(os.environ.get("NUNCHI_EN_MK", 0.0))}
 # synthetic sentences start from Korean and English sentences ("all"), or English only ("en"): once the
 # loanword set gives meaningful English inside Korean, random insertion is only needed the other way
 SYNTH_SRC = os.environ.get("NUNCHI_SYNTH_SRC", "all")
@@ -70,7 +73,15 @@ SHORT_EN_MODE = os.environ.get("NUNCHI_SHORT_EN_MODE", "both")
 AMB_KO_X = float(os.environ.get("NUNCHI_AMB_KO_X", 1))
 # how context enters: "start" = only the language a word starts in; "key" = a correction on every key
 CTX_MODE = os.environ.get("NUNCHI_CTX", "start")
-TYPO_WORD_P = 0.15
+TYPO_WORD_P = float(os.environ.get("NUNCHI_TYPO_P", 0.15))  # words given one keyboard typo (nunchi.tagger.typo)
+# Korean words typed with Shift still held after a double consonant (까 Rk -> RK, 싸 Tk -> TK) this often, among the
+# Korean words that have the pattern: the vowel comes out upper case but composes the same; without it the models
+# read such words as English (76-83% of them, experiments/typo_sets.py). o / p left out: Shift makes them ㅒ / ㅖ
+SHIFT_P = float(os.environ.get("NUNCHI_SHIFT_P", 0))
+SHIFT_HELD = re.compile(r"(?<=[QWERT])[hjklyuinmb]")
+# two neighbouring words of different languages typed with no space between (절충trade, zonna비싼데) this often, in
+# Korean-text samples: such words are ~11% wrong (experiments/fused_sets.py), the rest of the main set 0.1%
+JOIN_P = float(os.environ.get("NUNCHI_JOIN_P", 0))
 
 
 # ---------------------------------------------------------------- data
@@ -173,14 +184,19 @@ class Sampler:
         scale = WORDS_MIXED_SHARE * sum(w for _, _, w in rows) / max(sum(math.sqrt(c) for *_, c in mixed["train"]), 1)
         self.words_w = [w for _, _, w in rows] + [math.sqrt(c) * scale for *_, c in mixed["train"]]
         sizes = {s: math.sqrt(len(self.data[s][0])) for s in KO_SOURCES}
-        self.kmix = LineStore([l for src in ("nsmc", "kcbert") for l in self.data[src][0]
-                               if any(c.isascii() and c.isalpha() for c in l)])
+        kmix = [l for src in ("nsmc", "kcbert") for l in self.data[src][0] if any(c.isascii() and c.isalpha() for c in l)]
+        # NUNCHI_KMIX_EXTRA: more Korean lines with Latin, from text no pool reads (experiments/amb_en_train.py)
+        if os.environ.get("NUNCHI_KMIX_EXTRA"):
+            with (SENT / os.environ["NUNCHI_KMIX_EXTRA"]).open(encoding="utf-8") as f:
+                kmix += [line.rstrip("\n") for line in f if line.strip()]
+        self.kmix = LineStore(kmix)
         self.pools = {"kmix": self.kmix}
-        for name in ("web", "loan", "trans_en", "trans_ko"):
+        for name in ("web", "loan", "trans_en", "trans_ko", "en_mk"):
             self.pools[name] = []
             if SHARE[name] > 0:
                 # NUNCHI_WEB_FILE: another web pool (e.g. built from more mC4 shards) in place of web.txt
-                fname = os.environ.get("NUNCHI_WEB_FILE", "web.txt") if name == "web" else f"{name}.txt"
+                fname = os.environ.get("NUNCHI_WEB_FILE", "web.txt") if name == "web" else \
+                    os.environ.get("NUNCHI_EN_MK_FILE", "en_marked.txt") if name == "en_mk" else f"{name}.txt"
                 with (SENT / fname).open(encoding="utf-8") as f:
                     self.pools[name] = LineStore([line.rstrip("\n") for line in f if line.strip()])
         self.web, self.loan = self.pools["web"], self.pools["loan"]
@@ -204,6 +220,9 @@ class Sampler:
                      "plain": lambda t: any(eng(w) and len(w) <= 3 and w.lower() not in amb for w in t),
                      "amb": lambda t: any(eng(w) and w.lower() in amb for w in t),
                      "insert": lambda t: entry(t, ko), "switch": lambda t: entry(t, eng),
+                     # a Korean line ending in an English word after a Korean one (KO>EN end: no word after it to
+                     # revise it with)
+                     "end": lambda t: len(t) >= 2 and eng(t[-1]) and ko(t[-2]),
                      # English that is not ambiguous (3+ letters, keys not a Korean reading): pushed out by "amb"
                      "plain3": lambda t: any(eng(w) and len(w) >= 3 and w.lower() not in amb for w in t),
                      # number words (3개, gpt4, 5km, 시즌2) and Hangul+Latin (채널A): upweighting the lines above
@@ -233,7 +252,7 @@ class Sampler:
             if AMB_KO_X != 1 or code_x != 1:
                 for src in KO_SOURCES:  # keyed by source: the "ko" kinds draw from self.data[src]
                     self.pool_cw[src] = list(accumulate(weight(l, False) for l in self.data[src][0]))
-        extra = ("synth", "words", "kmix", "web", "loan", "trans_en", "trans_ko")
+        extra = ("synth", "words", "kmix", "web", "loan", "trans_en", "trans_ko", "en_mk")
         self.kinds = [("ko", s) for s in KO_SOURCES] + [("en", "tatoeba_en")] + [(k, None) for k in extra]
         self.kind_w = [SHARE["ko"] * sizes[s] / sum(sizes.values()) for s in KO_SOURCES] + \
                       [SHARE["en"]] + [SHARE[k] for k in extra]
@@ -281,6 +300,19 @@ class Sampler:
         if LOWER_P and kind in ("ko", "kmix", "web", "trans_ko", "words"):
             sent = [lowered(w) if rnd.random() < LOWER_P else w for w in sent]
         sent = [typo(k, y, rnd) if rnd.random() < TYPO_WORD_P and len(k) >= 2 else (k, y) for k, y in sent]
+        if JOIN_P and kind in ("ko", "kmix", "web", "synth"):
+            joined = []
+            for k, y in sent:
+                one = lambda yy: len(set(yy)) == 1  # noqa: E731
+                if joined and one(y) and one(joined[-1][1]) and y[0] != joined[-1][1][0] and                         not any(c.isdigit() for c in k + joined[-1][0]) and rnd.random() < JOIN_P:
+                    joined[-1] = (joined[-1][0] + k, joined[-1][1] + y)
+                else:
+                    joined.append((k, y))
+            sent = joined
+        if SHIFT_P:
+            sent = [(SHIFT_HELD.sub(lambda m: m.group(0).upper(), k), y)
+                    if all(x == KO for x in y) and SHIFT_HELD.search(k) and rnd.random() < SHIFT_P else (k, y)
+                    for k, y in sent]
         return sent[:rnd.randint(1, len(sent))]  # online: the words so far, the last one maybe a lookahead
 
     def batch(self, n, rnd):

@@ -1,195 +1,2550 @@
 {
- "_scheme": "TX = decision at Space (stream Transformer); RV = reviser that may change a word once more words are typed; a variant of one version gets a suffix (TX4-lr3). left / right: words of context before / after a word that the model is built for (null = the whole input). split_threshold / act_threshold: tuned on the dev sets for that model (split a word whose best path changes language when its probability is at least this; decide at Space when sure at least this, else after one more word); missing = code defaults. nunchi/models.py loads a model by name from here. TR = one model that decides at Space and revises (full window, every word labelled). Suffixes: -long = 51k training steps, -xlong = 102k (default 17k for TX/RV); short_* = 10k-step screening runs (docs/EXPERIMENTS.md). digits: own key ids for 0-9 (models trained on the v2/v3 pools that keep numbers); data: training pools (v1: numbers removed, v3: numbers kept, code-only web lines thinned); parent: the model it changes; steps: training steps.",
+ "_scheme": "Names. Models: STRUCTURE[version][-variant]-STEPSK[-sSEED]. TX = decision at Space (stream Transformer, fixed window after the word); RV = reviser that may change a word once more words are typed; TR = one model that decides at Space and revises (full window, every word labelled). A recipe gets the next version (TR4) when it is adopted: better cell average than the 10k baseline beyond noise at the same steps, no cell worse beyond noise, the same in two seeds. Screening runs: THEME-NN-STEPSK[-sSEED], THEME = the EXPERIMENTS.md log they belong to (dir = log 7, data directions; mark = log 10, en_marked; reg = log 11, regression; tr4 = log 12, error analysis to TR4; amb = log 19, ambiguous English; scr = log 20, overnight 10k screen; siz = log 22, model size; wid = log 23, knobs on the wide model), NN = order in that log; what a run changes is in 'knobs' and its lineage in 'parent' (a list when it joins two runs), not in the name. STEPS: 6K / 10K / 17K / 51K / 102K training steps (10K = screening runs). knobs: E = en_marked (version, share), L = entry loss weight, S / A / N = switch / ambiguous-English / number-word line multipliers, K = ambiguous-Korean multiplier, J = English+particle augmentation rate (default 0.5), X = extra kmix lines (NUNCHI_KMIX_EXTRA), H = Shift-held typo rate (NUNCHI_SHIFT_P), T = keyboard typo rate (NUNCHI_TYPO_P, default 0.15), W = lower-case rate of English in Korean text (NUNCHI_LOWER_P), F = rate of joining two neighbouring words of different languages (NUNCHI_JOIN_P), seed. status: production = the model to ship (one); candidate = trained to replace it, not yet checked; experiment = a screening run; archived = kept for the record (why in brackets at the end of 'what'). Files: the name in lower case, '-' -> '_', '.pt', as at training time (renamed runs keep their files: k8_10k.pt is tr4-02-10K; TX4-51K and RV1-51K keep tx4_long.pt / rv1_long.pt: the app's ONNX files are named after them). old_name: earlier names, newest first (the 10k score files in experiments/logs/knobs/ and the run configs use the first). left / right: words of context before / after a word (null = whole input). split_threshold / act_threshold: tuned on the dev sets; missing = code defaults. nunchi/models.py loads a model by name from here. digits: own key ids for 0-9 (models trained on the v2/v3 pools that keep numbers); data: training pools (v1: numbers removed, v3: numbers kept, code-only web lines thinned); parent: the model(s) it changes; steps: training steps.",
  "models": [
   {
-   "name": "TX1",
-   "file": "tx1.pt",
+   "name": "TX1-17K",
+   "file": "tx1_17k.pt",
    "kind": "stream",
    "left": null,
    "right": 1,
-   "status": "dropped",
-   "what": "whole-sentence context, every word labelled (words saw several words ahead in training)"
+   "status": "archived",
+   "what": "whole-sentence context, every word labelled (words saw several words ahead in training) [dropped]",
+   "old_name": "TX1"
   },
   {
-   "name": "TX2",
-   "file": "tx2.pt",
+   "name": "TX2-17K",
+   "file": "tx2_17k.pt",
    "kind": "stream",
    "left": 3,
    "right": 1,
-   "status": "dropped",
-   "what": "3 words of left context, one labelled word per stream, mC4 added"
+   "status": "archived",
+   "what": "3 words of left context, one labelled word per stream, mC4 added [dropped]",
+   "old_name": "TX2"
   },
   {
-   "name": "TX2-full",
-   "file": "tx2_full.pt",
+   "name": "TX2-full-17K",
+   "file": "tx2_full_17k.pt",
    "kind": "stream",
    "left": null,
    "right": 1,
    "status": "experiment",
-   "what": "TX2 with all left context (context-length comparison)"
+   "what": "TX2 with all left context (context-length comparison)",
+   "old_name": "TX2-full"
   },
   {
-   "name": "TX3",
-   "file": "tx3.pt",
+   "name": "TX3-17K",
+   "file": "tx3_17k.pt",
    "kind": "stream",
    "left": 3,
    "right": 1,
    "split_threshold": 0.7,
    "act_threshold": 0.99,
-   "status": "previous main",
-   "what": "TX2 + wrong-mode filter by frequency, loanword and translation-swapped sentences; ONNX: ctx_left3_v2.onnx (kept as is)"
+   "status": "archived",
+   "what": "TX2 + wrong-mode filter by frequency, loanword and translation-swapped sentences; ONNX: ctx_left3_v2.onnx (kept as is) [previous main]",
+   "old_name": "TX3"
   },
   {
-   "name": "TX4",
-   "file": "tx4.pt",
+   "name": "TX4-17K",
+   "file": "tx4_17k.pt",
    "kind": "stream",
    "left": 3,
    "right": 1,
    "split_threshold": 0.7,
    "act_threshold": 0.7,
-   "status": "previous main",
-   "what": "TX3 + loanwords as ordinary translations, web English+Korean words, 30% lower-case augmentation"
+   "status": "archived",
+   "what": "TX3 + loanwords as ordinary translations, web English+Korean words, 30% lower-case augmentation [previous main]",
+   "old_name": "TX4"
   },
   {
-   "name": "TX4-lr3",
-   "file": "tx4_lr3.pt",
+   "name": "TX4-lr3-6K",
+   "file": "tx4_lr3_6k.pt",
    "kind": "stream",
    "left": 3,
    "right": 1,
-   "status": "dropped",
-   "what": "TX4 data, LR 0.003, 6,000 steps"
+   "status": "archived",
+   "what": "TX4 data, LR 0.003, 6,000 steps [dropped]",
+   "old_name": "TX4-lr3"
   },
   {
-   "name": "TX4-R5",
-   "file": "tx4_r5.pt",
+   "name": "TX4-R5-17K",
+   "file": "tx4_r5_17k.pt",
    "kind": "stream",
    "left": 3,
    "right": 5,
-   "status": "dropped",
-   "what": "TX4 data, one labelled word with 0-5 words after it"
+   "status": "archived",
+   "what": "TX4 data, one labelled word with 0-5 words after it [dropped]",
+   "old_name": "TX4-R5"
   },
   {
-   "name": "RV0",
-   "file": "rv0.pt",
+   "name": "RV0-17K",
+   "file": "rv0_17k.pt",
    "kind": "stream",
    "left": null,
    "right": null,
-   "status": "reviser baseline",
-   "what": "TX4 data, every typed word labelled, full attention in the window (decides now and revises)"
+   "status": "archived",
+   "what": "TX4 data, every typed word labelled, full attention in the window (decides now and revises) [reviser baseline]",
+   "old_name": "RV0"
   },
   {
-   "name": "RV1",
-   "file": "rv1.pt",
+   "name": "RV1-17K",
+   "file": "rv1_17k.pt",
    "kind": "stream",
    "left": null,
    "right": null,
-   "status": "reviser",
-   "what": "RV0 but the word just typed is not labelled: revision only"
+   "status": "archived",
+   "what": "RV0 but the word just typed is not labelled: revision only [reviser]",
+   "old_name": "RV1"
   },
   {
    "name": "HMM",
    "file": "tagger.pt",
-   "status": "baseline",
-   "what": "key-level word tagger (BiLSTM-CRF) + 2-state HMM"
+   "status": "archived",
+   "what": "key-level word tagger (BiLSTM-CRF) + 2-state HMM [baseline]"
   },
   {
    "name": "LSTM",
    "file": "lstm.pt",
-   "status": "dropped",
-   "what": "word tagger + sentence BiLSTM"
+   "status": "archived",
+   "what": "word tagger + sentence BiLSTM [dropped]"
   },
   {
    "name": "fastText v3",
    "file": "ft_shape_aug.ftz",
-   "status": "record",
-   "what": "word classifier with shape token and typo augmentation"
+   "status": "archived",
+   "what": "word classifier with shape token and typo augmentation [record]"
   },
   {
-   "name": "TX4-long",
+   "name": "TX4-51K",
    "file": "tx4_long.pt",
    "kind": "stream",
    "left": 3,
    "right": 1,
-   "parent": "TX4",
+   "parent": "TX4-17K",
    "steps": 51000,
    "data": "v1 + web50",
-   "status": "record",
-   "what": "TX4 recipe, 3x steps, 5x web pool: real 56 -> 48 (dev, numbers removed)"
+   "status": "archived",
+   "what": "TX4 recipe, 3x steps, 5x web pool: real 56 -> 48 (dev, numbers removed) [record]",
+   "old_name": "TX4-long"
   },
   {
-   "name": "TX4-long-s1",
-   "file": "tx4_long_s1.pt",
+   "name": "TX4-51K-s1",
+   "file": "tx4_51k_s1.pt",
    "kind": "stream",
    "left": 3,
    "right": 1,
-   "parent": "TX4-long",
+   "parent": "TX4-51K",
    "steps": 51000,
    "data": "v1 + web50",
-   "status": "record",
-   "what": "TX4-long, seed 1: the seed noise at 51k"
+   "status": "archived",
+   "what": "TX4-long, seed 1: the seed noise at 51k [record]",
+   "old_name": "TX4-long-s1"
   },
   {
-   "name": "RV1-long",
+   "name": "RV1-51K",
    "file": "rv1_long.pt",
    "kind": "stream",
    "left": null,
    "right": null,
-   "parent": "RV1",
+   "parent": "RV1-17K",
    "steps": 51000,
    "data": "v1 + web50",
-   "status": "reviser",
-   "what": "RV1 recipe at 51k: better reviser than RV1 without a gate (net +8 real vs -1)"
+   "status": "archived",
+   "what": "RV1 recipe at 51k: better reviser than RV1 without a gate (net +8 real vs -1) [reviser]",
+   "old_name": "RV1-long"
   },
   {
-   "name": "TR-long",
-   "file": "tr_long.pt",
+   "name": "TR1-51K",
+   "file": "tr1_51k.pt",
    "kind": "stream",
    "left": null,
    "right": null,
-   "parent": "RV0",
+   "parent": "RV0-17K",
    "steps": 51000,
    "data": "v1 + web50",
-   "status": "record",
-   "what": "TR recipe (decides and revises in one model) at 51k: decides at Space better than TX4-long (38 vs 46 real)"
+   "status": "archived",
+   "what": "TR recipe (decides and revises in one model) at 51k: decides at Space better than TX4-long (38 vs 46 real) [record]",
+   "old_name": "TR-long"
   },
   {
-   "name": "TR2-long",
-   "file": "tr2_long.pt",
+   "name": "TR2-51K",
+   "file": "tr2_51k.pt",
    "kind": "stream",
    "left": null,
    "right": null,
    "digits": true,
-   "parent": "TR-long",
+   "parent": "TR1-51K",
    "steps": 51000,
    "data": "v2",
-   "status": "dropped",
-   "what": "v2 pools keep numbers + digit keys: number words 375 -> 41 wrong, but code-only web lines thinned the English"
+   "status": "archived",
+   "what": "v2 pools keep numbers + digit keys: number words 375 -> 41 wrong, but code-only web lines thinned the English [dropped]",
+   "old_name": "TR2-long"
   },
   {
-   "name": "TR3-long",
-   "file": "tr3_long.pt",
+   "name": "TR3-51K",
+   "file": "tr3_51k.pt",
    "kind": "stream",
    "left": null,
    "right": null,
    "digits": true,
-   "parent": "TR2-long",
+   "parent": "TR2-51K",
    "steps": 51000,
    "data": "v3",
-   "status": "main",
-   "what": "v3 pools (word caps count real English only, code-only web lines 30%): the reference on the number-kept sets"
+   "status": "archived",
+   "what": "v3 pools (word caps count real English only, code-only web lines 30%): the reference on the number-kept sets [production until 2026-11-03]",
+   "old_name": "TR3-long"
   },
   {
-   "name": "TR3-xlong",
-   "file": "tr3_xlong.pt",
+   "name": "TR3-102K",
+   "file": "tr3_102k.pt",
    "kind": "stream",
    "left": null,
    "right": null,
    "digits": true,
-   "parent": "TR3-long",
+   "parent": "TR3-51K",
    "steps": 102000,
    "data": "v3",
-   "status": "paused at 38k (checkpoint kept)",
-   "what": "TR3 at 102k; paused: scale comes after data / loss / policy"
+   "status": "archived",
+   "what": "TR3 at 102k; paused: scale comes after data / loss / policy [paused at 38k (checkpoint kept)]",
+   "old_name": "TR3-xlong"
+  },
+  {
+   "name": "TR3-10K",
+   "old_name": "S0",
+   "file": "tr3_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR3-51K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {},
+   "what": "the TR3 recipe at 10k steps: the baseline of every 10k run"
+  },
+  {
+   "name": "TR3-10K-s1",
+   "old_name": "S0-s1",
+   "file": "tr3_10k_s1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR3-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "seed": 1
+   },
+   "what": "TR3-10K, seed 1"
+  },
+  {
+   "name": "dir-01-10K",
+   "old_name": "A-10K, A",
+   "file": "a_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR3-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "A": 2,
+    "note": "short English (both kinds) x2"
+   },
+   "what": "short-English lines x2 (any short English)"
+  },
+  {
+   "name": "dir-02-10K",
+   "old_name": "B-10K, B",
+   "file": "b_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR3-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "trans": 0.15
+   },
+   "what": "translation swaps 5 -> 15%"
+  },
+  {
+   "name": "dir-03-10K",
+   "old_name": "C-10K, C",
+   "file": "c_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR3-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "L": 3.0
+   },
+   "what": "entry loss x3 (a word entering English after a Korean word weighs 3)"
+  },
+  {
+   "name": "dir-04-10K",
+   "old_name": "A-plain-10K, A-plain",
+   "file": "a_plain_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "dir-01-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "plain": 2
+   },
+   "what": "1-3 letter English with no Korean reading x2"
+  },
+  {
+   "name": "dir-05-10K",
+   "old_name": "A-amb-10K, A-amb",
+   "file": "a_amb_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "dir-01-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "A": 2.0
+   },
+   "what": "ambiguous-key English lines x2"
+  },
+  {
+   "name": "dir-08-10K",
+   "old_name": "A-amb4-10K, A-amb4",
+   "file": "a_amb4_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "dir-05-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "A": 4.0
+   },
+   "what": "ambiguous-key English lines x4"
+  },
+  {
+   "name": "dir-06-10K",
+   "old_name": "A-insert-10K, A-insert",
+   "file": "a_insert_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "dir-01-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "insert": 2
+   },
+   "what": "Korean-English-Korean lines x2"
+  },
+  {
+   "name": "dir-07-10K",
+   "old_name": "A-switch-10K, A-switch",
+   "file": "a_switch_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "dir-01-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "S": 2.0
+   },
+   "what": "Korean-English-English (switch) lines x2"
+  },
+  {
+   "name": "dir-09-10K",
+   "old_name": "A-amb-switch-10K, A-amb-switch",
+   "file": "a_amb_switch_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": [
+    "dir-05-10K",
+    "dir-07-10K"
+   ],
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "A": 2.0,
+    "S": 2.0
+   },
+   "what": "ambiguous and switch lines x2 each"
+  },
+  {
+   "name": "dir-13-10K",
+   "old_name": "BAL-10K, BAL",
+   "file": "bal_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR3-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "english_share": 0.45
+   },
+   "what": "English-based share 25 -> 45%"
+  },
+  {
+   "name": "dir-10-10K",
+   "old_name": "R3-1-10K, R3-1",
+   "file": "r3_1_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": [
+    "dir-08-10K",
+    "dir-07-10K"
+   ],
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "A": 4.0,
+    "S": 2.0
+   },
+   "what": "ambiguous English x4 + switch x2"
+  },
+  {
+   "name": "dir-11-10K",
+   "old_name": "R3-2-10K, R3-2",
+   "file": "r3_2_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "dir-10-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "A": 4.0,
+    "S": 2.0,
+    "K": 4.0
+   },
+   "what": "dir-10 + ambiguous Korean lines x4"
+  },
+  {
+   "name": "dir-12-10K",
+   "old_name": "R3-3-10K, R3-3",
+   "file": "r3_3_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR3-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "K": 4.0
+   },
+   "what": "ambiguous Korean lines x4 only"
+  },
+  {
+   "name": "dir-14-10K",
+   "old_name": "R3-2c-10K, R3-2c",
+   "file": "r3_2c_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "dir-11-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "A": 4.0,
+    "S": 2.0,
+    "N": 2.0,
+    "K": 4.0
+   },
+   "what": "dir-11 + number-word lines x2"
+  },
+  {
+   "name": "dir-15-10K",
+   "old_name": "R3-2e-10K, R3-2e",
+   "file": "r3_2e_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "dir-11-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "A": 4.0,
+    "S": 2.0,
+    "plain3": 1.5,
+    "K": 4.0
+   },
+   "what": "dir-11 + plain 3+ letter English x1.5"
+  },
+  {
+   "name": "dir-16-10K",
+   "old_name": "R3-2s-10K, R3-2s",
+   "file": "r3_2s_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "dir-11-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "A": 3.0,
+    "S": 2.0,
+    "K": 4.0
+   },
+   "what": "dir-11 with ambiguous English x3 instead of x4"
+  },
+  {
+   "name": "dir-16-17K",
+   "old_name": "R3-2s-17K, R3-2s-17k",
+   "file": "r3_2s_17k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "dir-16-10K",
+   "steps": 17000,
+   "status": "experiment",
+   "knobs": {
+    "A": 3.0,
+    "S": 2.0,
+    "K": 4.0
+   },
+   "what": "dir-16 at 17k steps"
+  },
+  {
+   "name": "mark-01-10K",
+   "old_name": "K1a-10K, K1-mk05",
+   "file": "k1a_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR3-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v1 0.05"
+   },
+   "what": "en_marked v1 at 5%: English lines with Korean interjections / jamo / conjugated words"
+  },
+  {
+   "name": "mark-02-10K",
+   "old_name": "K1b-10K, K1-mk10",
+   "file": "k1b_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR3-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v1 0.1"
+   },
+   "what": "en_marked v1 at 10%"
+  },
+  {
+   "name": "mark-03-10K",
+   "old_name": "K2a-10K, K2-code4",
+   "file": "k2a_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR3-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "N": 4.0
+   },
+   "what": "number-word lines x4"
+  },
+  {
+   "name": "mark-04-10K",
+   "old_name": "K2b-10K, K2-webv2",
+   "file": "k2b_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR3-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "web": "web50_v2.txt"
+   },
+   "what": "web pool v2 (all code-only lines kept)"
+  },
+  {
+   "name": "mark-05-10K",
+   "old_name": "K4-10K, K4-mk10v2",
+   "file": "k4_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "mark-02-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v2 0.1"
+   },
+   "what": "en_marked v2: + 198 real English lines whose words share keys with a marker (WW2 = ㅉㅉ2)"
+  },
+  {
+   "name": "mark-06-10K",
+   "old_name": "K5-10K, K5-mk10v3",
+   "file": "k5_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "mark-02-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1"
+   },
+   "what": "en_marked v3: + real English lines per colliding key, 1:1 with the marked lines (WikiText-103, Reddit)"
+  },
+  {
+   "name": "mark-07-10K",
+   "old_name": "K6-10K, K6-mk10v3h",
+   "file": "k6_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "mark-06-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 1:2 0.1"
+   },
+   "what": "en_marked v3 at 1:2 instead of 1:1"
+  },
+  {
+   "name": "tr4-01-10K",
+   "old_name": "K7-10K, K7",
+   "file": "k7_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": [
+    "mark-06-10K",
+    "dir-03-10K"
+   ],
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25
+   },
+   "what": "mark-06 + entry loss 2.25"
+  },
+  {
+   "name": "tr4-01-10K-s1",
+   "old_name": "K7-10K-s1, K7-s1",
+   "file": "k7_10k_s1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "tr4-01-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "seed": 1
+   },
+   "what": "tr4-01-10K, seed 1"
+  },
+  {
+   "name": "tr4-02-10K",
+   "old_name": "K8-10K, K8",
+   "file": "k8_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": [
+    "tr4-01-10K",
+    "reg-22-10K"
+   ],
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5
+   },
+   "what": "tr4-01 + switch lines x2.5"
+  },
+  {
+   "name": "tr4-02-10K-s1",
+   "old_name": "K8-10K-s1, K8-s1",
+   "file": "k8_10k_s1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "tr4-02-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "seed": 1
+   },
+   "what": "tr4-02-10K, seed 1"
+  },
+  {
+   "name": "TR4-10K",
+   "old_name": "K9",
+   "file": "tr4_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "tr4-02-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25
+   },
+   "what": "TR4 recipe: tr4-02 + English+particle augmentation 0.5 -> 0.25"
+  },
+  {
+   "name": "TR4-10K-s1",
+   "old_name": "K9-s1",
+   "file": "tr4_10k_s1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR4-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "seed": 1
+   },
+   "what": "TR4-10K, seed 1"
+  },
+  {
+   "name": "TR4-51K",
+   "file": "tr4_51k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR4-10K",
+   "steps": 51000,
+   "status": "archived",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25
+   },
+   "what": "the TR4 recipe at 51k, against TR3-51K (replaced by TR5n-102K, log 25)"
+  },
+  {
+   "name": "TR5-51K",
+   "file": "tr5_51k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": [
+    "TR4-51K",
+    "siz-01-10K",
+    "scr-11-10K",
+    "wid-01-10K"
+   ],
+   "steps": 51000,
+   "status": "candidate",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "H": 0.08,
+    "words": 0.05
+   },
+   "what": "TR4-51K on the wide size (siz-01) + Shift-held typo augmentation 8% (scr-11) + single-word samples 15 -> 5% (wid-01)",
+   "size": [
+    384,
+    6,
+    4,
+    1536
+   ]
+  },
+  {
+   "name": "TR5n-51K",
+   "file": "tr5n_51k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR5-51K",
+   "steps": 51000,
+   "status": "candidate",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "H": 0.08,
+    "words": 0.05
+   },
+   "what": "TR5-51K on the TR4 size (256x4): does the wide size pay at 51k?"
+  },
+  {
+   "name": "TR5n-102K",
+   "file": "tr5n_102k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR5n-51K",
+   "steps": 102000,
+   "status": "production",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "H": 0.08,
+    "words": 0.05
+   },
+   "what": "TR5n-51K trained twice as long: does longer training still pay? (app model, log 25; app thresholds log 33)"
+  },
+  {
+   "name": "TR5n-102K-s1",
+   "file": "tr5n_102k_s1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR5n-102K",
+   "steps": 102000,
+   "status": "candidate",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "H": 0.08,
+    "words": 0.05,
+    "seed": 1
+   },
+   "what": "TR5n-102K, seed 1 (is the -6% against TR5n-51K real?)"
+  },
+  {
+   "name": "TR5n-204K",
+   "file": "tr5n_204k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR5n-102K",
+   "steps": 204000,
+   "status": "archived",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "H": 0.08,
+    "words": 0.05
+   },
+   "what": "TR5n-102K trained twice as long again: the curve over 10k / 51k / 102k predicts ~780 (-5%) on the shared cells; kept only if the seed mean beats TR5n-102K's beyond seed noise (830, inside the 102k pair 806 / 840: length stops at 102k, log 30)"
+  },
+  {
+   "name": "TR5n-204K-s1",
+   "file": "tr5n_204k_s1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR5n-204K",
+   "steps": 204000,
+   "status": "archived",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "H": 0.08,
+    "words": 0.05,
+    "seed": 1
+   },
+   "what": "TR5n-204K, seed 1 (stopped by hand after 21 minutes, no model saved: seed 0 at 830 sat inside the 102k pair, log 30)"
+  },
+  {
+   "name": "TR5-51K-s1",
+   "file": "tr5_51k_s1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR5-51K",
+   "steps": 51000,
+   "status": "candidate",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "H": 0.08,
+    "words": 0.05,
+    "seed": 1
+   },
+   "what": "TR5-51K, seed 1 (seed noise at 51k)",
+   "size": [
+    384,
+    6,
+    4,
+    1536
+   ]
+  },
+  {
+   "name": "reg-20-10K",
+   "old_name": "R0-10K, P",
+   "file": "r0_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": [
+    "reg-00-10K",
+    "reg-01-10K",
+    "reg-02-10K",
+    "reg-03-10K",
+    "reg-04-10K",
+    "reg-05-10K",
+    "reg-06-10K",
+    "reg-07-10K",
+    "reg-08-10K",
+    "reg-09-10K",
+    "reg-10-10K",
+    "reg-11-10K",
+    "reg-12-10K",
+    "reg-13-10K",
+    "reg-14-10K",
+    "reg-15-10K",
+    "reg-16-10K",
+    "reg-17-10K",
+    "reg-18-10K",
+    "reg-19-10K"
+   ],
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v1 0.088",
+    "L": 2.81,
+    "A": 2.91,
+    "S": 2.97,
+    "K": 1.03
+   },
+   "what": "regression pick after the 20 mixture runs"
+  },
+  {
+   "name": "reg-20-10K-s1",
+   "old_name": "R0-10K-s1, P-s1",
+   "file": "r0_10k_s1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "reg-20-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v1 0.088",
+    "L": 2.81,
+    "A": 2.91,
+    "S": 2.97,
+    "K": 1.03,
+    "seed": 1
+   },
+   "what": "reg-20-10K, seed 1"
+  },
+  {
+   "name": "reg-21-10K",
+   "old_name": "R1-10K, Q1",
+   "file": "r1_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "reg-20-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v1 0.088",
+    "L": 3.0,
+    "A": 1.02,
+    "S": 2.87,
+    "K": 2.98
+   },
+   "what": "sequential regression round 1 (guard fitted linearly)"
+  },
+  {
+   "name": "reg-21-10K-s1",
+   "old_name": "R1-10K-s1, Q1-s1",
+   "file": "r1_10k_s1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "reg-21-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v1 0.088",
+    "L": 3.0,
+    "A": 1.02,
+    "S": 2.87,
+    "K": 2.98,
+    "seed": 1
+   },
+   "what": "reg-21-10K, seed 1"
+  },
+  {
+   "name": "reg-22-10K",
+   "old_name": "R2-10K, Q2",
+   "file": "r2_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "reg-21-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v1 0.07",
+    "L": 2.09,
+    "A": 1.41,
+    "S": 1.86,
+    "K": 1.45
+   },
+   "what": "sequential regression round 2 (milder knobs)"
+  },
+  {
+   "name": "reg-22-10K-s1",
+   "old_name": "R2-10K-s1, Q2-s1",
+   "file": "r2_10k_s1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "reg-22-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v1 0.07",
+    "L": 2.09,
+    "A": 1.41,
+    "S": 1.86,
+    "K": 1.45,
+    "seed": 1
+   },
+   "what": "reg-22-10K, seed 1"
+  },
+  {
+   "name": "reg-02-51K",
+   "old_name": "M02-51K, M02-long",
+   "file": "m02_51k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "reg-02-10K",
+   "steps": 51000,
+   "status": "archived",
+   "knobs": {
+    "E": "v1 0.114",
+    "L": 2.25,
+    "A": 1.66,
+    "S": 2.49,
+    "K": 1.86
+   },
+   "what": "reg-02 at 51k; stopped at 31k (checkpoint kept) [stopped]"
+  },
+  {
+   "name": "dir-03-51K",
+   "old_name": "C-51K, TR4-long (old)",
+   "file": "c_51k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "dir-03-10K",
+   "steps": 51000,
+   "status": "archived",
+   "knobs": {},
+   "what": "dir-03 (entry loss x3) at 51k; stopped at 8k (checkpoint kept) [stopped]"
+  },
+  {
+   "name": "reg-00-10K",
+   "old_name": "M00-10K, M00",
+   "file": "m00_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR3-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v1 0.001",
+    "L": 2.7,
+    "A": 1.11,
+    "S": 1.03,
+    "K": 1.42
+   },
+   "what": "random knob mixture for the regression"
+  },
+  {
+   "name": "reg-01-10K",
+   "old_name": "M01-10K, M01",
+   "file": "m01_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR3-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v1 0.108",
+    "L": 1.08,
+    "A": 2.95,
+    "S": 2.03,
+    "K": 3.81
+   },
+   "what": "random knob mixture for the regression"
+  },
+  {
+   "name": "reg-02-10K",
+   "old_name": "M02-10K, M02",
+   "file": "m02_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR3-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v1 0.114",
+    "L": 2.25,
+    "A": 1.66,
+    "S": 2.49,
+    "K": 1.86
+   },
+   "what": "random knob mixture for the regression"
+  },
+  {
+   "name": "reg-03-10K",
+   "old_name": "M03-10K, M03",
+   "file": "m03_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR3-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v1 0.077",
+    "L": 2.0,
+    "A": 2.43,
+    "S": 1.31,
+    "K": 3.09
+   },
+   "what": "random knob mixture for the regression"
+  },
+  {
+   "name": "reg-04-10K",
+   "old_name": "M04-10K, M04",
+   "file": "m04_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR3-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v1 0.04",
+    "L": 2.35,
+    "A": 2.58,
+    "S": 1.42,
+    "K": 3.53
+   },
+   "what": "random knob mixture for the regression"
+  },
+  {
+   "name": "reg-05-10K",
+   "old_name": "M05-10K, M05",
+   "file": "m05_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR3-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v1 0.094",
+    "L": 2.87,
+    "A": 2.13,
+    "S": 2.4,
+    "K": 2.13
+   },
+   "what": "random knob mixture for the regression"
+  },
+  {
+   "name": "reg-06-10K",
+   "old_name": "M06-10K, M06",
+   "file": "m06_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR3-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v1 0.069",
+    "L": 2.2,
+    "A": 1.2,
+    "S": 2.93,
+    "K": 1.34
+   },
+   "what": "random knob mixture for the regression"
+  },
+  {
+   "name": "reg-07-10K",
+   "old_name": "M07-10K, M07",
+   "file": "m07_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR3-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v1 0.113",
+    "L": 1.5,
+    "A": 1.5,
+    "S": 1.48,
+    "K": 2.78
+   },
+   "what": "random knob mixture for the regression"
+  },
+  {
+   "name": "reg-08-10K",
+   "old_name": "M08-10K, M08",
+   "file": "m08_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR3-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v1 0.049",
+    "L": 1.23,
+    "A": 1.83,
+    "S": 1.36,
+    "K": 2.15
+   },
+   "what": "random knob mixture for the regression"
+  },
+  {
+   "name": "reg-09-10K",
+   "old_name": "M09-10K, M09",
+   "file": "m09_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR3-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v1 0.02",
+    "L": 1.37,
+    "A": 2.69,
+    "S": 1.73,
+    "K": 2.54
+   },
+   "what": "random knob mixture for the regression"
+  },
+  {
+   "name": "reg-10-10K",
+   "old_name": "M10-10K, M10",
+   "file": "m10_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR3-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v1 0.047",
+    "L": 2.44,
+    "A": 3.22,
+    "S": 1.59,
+    "K": 1.72
+   },
+   "what": "random knob mixture for the regression"
+  },
+  {
+   "name": "reg-11-10K",
+   "old_name": "M11-10K, M11",
+   "file": "m11_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR3-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v1 0.054",
+    "L": 2.76,
+    "A": 3.89,
+    "S": 1.23,
+    "K": 2.88
+   },
+   "what": "random knob mixture for the regression"
+  },
+  {
+   "name": "reg-12-10K",
+   "old_name": "M12-10K, M12",
+   "file": "m12_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR3-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v1 0.065",
+    "L": 1.13,
+    "A": 3.44,
+    "S": 2.22,
+    "K": 1.87
+   },
+   "what": "random knob mixture for the regression"
+  },
+  {
+   "name": "reg-13-10K",
+   "old_name": "M13-10K, M13",
+   "file": "m13_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR3-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v1 0.017",
+    "L": 1.64,
+    "A": 1.96,
+    "S": 1.81,
+    "K": 1.28
+   },
+   "what": "random knob mixture for the regression"
+  },
+  {
+   "name": "reg-14-10K",
+   "old_name": "M14-10K, M14",
+   "file": "m14_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR3-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v1 0.011",
+    "L": 1.94,
+    "A": 1.41,
+    "S": 1.12,
+    "K": 1.04
+   },
+   "what": "random knob mixture for the regression"
+  },
+  {
+   "name": "reg-15-10K",
+   "old_name": "M15-10K, M15",
+   "file": "m15_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR3-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v1 0.033",
+    "L": 2.58,
+    "A": 1.06,
+    "S": 2.73,
+    "K": 3.43
+   },
+   "what": "random knob mixture for the regression"
+  },
+  {
+   "name": "reg-16-10K",
+   "old_name": "M16-10K, M16",
+   "file": "m16_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR3-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v1 0.078",
+    "L": 1.82,
+    "A": 2.21,
+    "S": 1.89,
+    "K": 1.2
+   },
+   "what": "random knob mixture for the regression"
+  },
+  {
+   "name": "reg-17-10K",
+   "old_name": "M17-10K, M17",
+   "file": "m17_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR3-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v1 0.027",
+    "L": 2.94,
+    "A": 3.61,
+    "S": 2.07,
+    "K": 1.13
+   },
+   "what": "random knob mixture for the regression"
+  },
+  {
+   "name": "reg-18-10K",
+   "old_name": "M18-10K, M18",
+   "file": "m18_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR3-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v1 0.097",
+    "L": 1.6,
+    "A": 1.25,
+    "S": 1.06,
+    "K": 1.57
+   },
+   "what": "random knob mixture for the regression"
+  },
+  {
+   "name": "reg-19-10K",
+   "old_name": "M19-10K, M19",
+   "file": "m19_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR3-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v1 0.087",
+    "L": 1.8,
+    "A": 1.53,
+    "S": 2.61,
+    "K": 2.44
+   },
+   "what": "random knob mixture for the regression"
+  },
+  {
+   "name": "reg-02-10K-s1",
+   "old_name": "M02-10K-s1, M02-s1",
+   "file": "m02_10k_s1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "reg-02-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v1 0.114",
+    "L": 2.25,
+    "A": 1.66,
+    "S": 2.49,
+    "K": 1.86,
+    "seed": 1
+   },
+   "what": "reg-02-10K, seed 1"
+  },
+  {
+   "name": "reg-11-10K-s1",
+   "old_name": "M11-10K-s1, M11-s1",
+   "file": "m11_10k_s1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "reg-11-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v1 0.054",
+    "L": 2.76,
+    "A": 3.89,
+    "S": 1.23,
+    "K": 2.88,
+    "seed": 1
+   },
+   "what": "reg-11-10K, seed 1"
+  },
+  {
+   "name": "amb-01-10K",
+   "file": "amb_01_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR4-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "X": "kmix_amb_x4"
+   },
+   "what": "TR4-10K + 1,869 new Korean lines with lower-case ambiguous English (b, s, go) in kmix, x4 as common: ambiguous English 9.3 -> 5.6% but single jamo +2.9 and Korean words that read as English +7.9 %p; on TR4-10K's bias curve (leans, barely learns) [not adopted]"
+  },
+  {
+   "name": "amb-01-10K-s1",
+   "file": "amb_01_10k_s1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "amb-01-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "X": "kmix_amb_x4",
+    "seed": 1
+   },
+   "what": "amb-01-10K, seed 1"
+  },
+  {
+   "name": "scr-01-10K",
+   "file": "scr_01_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR4-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "H": 0.15
+   },
+   "what": "TR4-10K + Shift-held typo augmentation: 15% of Korean words with the pattern (까 -> RK) [Shift-held 77.7 -> 0.08%; acronyms 0.15 -> 0.40% over four seeds]"
+  },
+  {
+   "name": "scr-01-10K-s1",
+   "file": "scr_01_10k_s1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "scr-01-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "H": 0.15,
+    "seed": 1
+   },
+   "what": "scr-01-10K, seed 1"
+  },
+  {
+   "name": "scr-02-10K",
+   "file": "scr_02_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR4-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "H": 0.3
+   },
+   "what": "TR4-10K + Shift-held typo augmentation at 30% [acronyms worse beyond noise: dropped]"
+  },
+  {
+   "name": "scr-02-10K-s1",
+   "file": "scr_02_10k_s1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "scr-02-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "H": 0.3,
+    "seed": 1
+   },
+   "what": "scr-02-10K, seed 1"
+  },
+  {
+   "name": "scr-03-10K",
+   "file": "scr_03_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR4-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "T": 0.25
+   },
+   "what": "TR4-10K + keyboard typo augmentation 15 -> 25% of words [position typos better, KO>EN cells a little worse: on hold]"
+  },
+  {
+   "name": "scr-03-10K-s1",
+   "file": "scr_03_10k_s1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "scr-03-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "T": 0.25,
+    "seed": 1
+   },
+   "what": "scr-03-10K, seed 1"
+  },
+  {
+   "name": "scr-04-10K",
+   "file": "scr_04_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR4-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "T": 0.05
+   },
+   "what": "TR4-10K + keyboard typo augmentation 15 -> 5% of words [position typos worse, clean cells a little better: 15% kept]"
+  },
+  {
+   "name": "scr-04-10K-s1",
+   "file": "scr_04_10k_s1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "scr-04-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "T": 0.05,
+    "seed": 1
+   },
+   "what": "scr-04-10K, seed 1"
+  },
+  {
+   "name": "scr-05-10K",
+   "file": "scr_05_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR4-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "N_end": 3
+   },
+   "what": "TR4-10K + Korean lines ending in an English word x3 in web / kmix (KO>EN end) [no effect: dropped]"
+  },
+  {
+   "name": "scr-05-10K-s1",
+   "file": "scr_05_10k_s1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "scr-05-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "N_end": 3,
+    "seed": 1
+   },
+   "what": "scr-05-10K, seed 1"
+  },
+  {
+   "name": "scr-06-10K",
+   "file": "scr_06_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR4-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 3.0,
+    "S": 2.5,
+    "J": 0.25
+   },
+   "what": "TR4-10K + entry loss 2.25 -> 3.0 [leans English: dropped]"
+  },
+  {
+   "name": "scr-06-10K-s1",
+   "file": "scr_06_10k_s1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "scr-06-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 3.0,
+    "S": 2.5,
+    "J": 0.25,
+    "seed": 1
+   },
+   "what": "scr-06-10K, seed 1"
+  },
+  {
+   "name": "scr-07-10K",
+   "file": "scr_07_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR4-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.15",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25
+   },
+   "what": "TR4-10K + en_marked v3 share 10 -> 15% (EN>KO end) [no effect: dropped]"
+  },
+  {
+   "name": "scr-07-10K-s1",
+   "file": "scr_07_10k_s1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "scr-07-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.15",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "seed": 1
+   },
+   "what": "scr-07-10K, seed 1"
+  },
+  {
+   "name": "scr-08-10K",
+   "file": "scr_08_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR4-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "H": 0.15,
+    "T": 0.25
+   },
+   "what": "TR4-10K + Shift-held typos 15% + keyboard typos 25% [acronyms worse: no]"
+  },
+  {
+   "name": "scr-08-10K-s1",
+   "file": "scr_08_10k_s1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "scr-08-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "H": 0.15,
+    "T": 0.25,
+    "seed": 1
+   },
+   "what": "scr-08-10K, seed 1"
+  },
+  {
+   "name": "scr-09-10K",
+   "file": "scr_09_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR4-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "F": 0.05
+   },
+   "what": "TR4-10K + neighbouring words of the two languages joined with no space, 5% of pairs [no effect: dropped]"
+  },
+  {
+   "name": "scr-09-10K-s1",
+   "file": "scr_09_10k_s1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "scr-09-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "F": 0.05,
+    "seed": 1
+   },
+   "what": "scr-09-10K, seed 1"
+  },
+  {
+   "name": "scr-10-10K",
+   "file": "scr_10_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR4-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "F": 0.15
+   },
+   "what": "TR4-10K + neighbouring words of the two languages joined with no space, 15% of pairs [leans Korean: dropped]"
+  },
+  {
+   "name": "scr-10-10K-s1",
+   "file": "scr_10_10k_s1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "scr-10-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "F": 0.15,
+    "seed": 1
+   },
+   "what": "scr-10-10K, seed 1"
+  },
+  {
+   "name": "scr-11-10K",
+   "file": "scr_11_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR4-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "H": 0.08
+   },
+   "what": "TR4-10K + Shift-held typo augmentation at 8% (does the acronym cost of 15% / 30% go away?) [Shift-held 0.27%, acronyms 0.28% within noise: recommended for 51k]"
+  },
+  {
+   "name": "scr-11-10K-s1",
+   "file": "scr_11_10k_s1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "scr-11-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "H": 0.08,
+    "seed": 1
+   },
+   "what": "scr-11-10K, seed 1"
+  },
+  {
+   "name": "scr-01-10K-s2",
+   "file": "scr_01_10k_s2.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "scr-01-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "H": 0.15,
+    "seed": 2
+   },
+   "what": "scr-01-10K, seed 2"
+  },
+  {
+   "name": "scr-01-10K-s3",
+   "file": "scr_01_10k_s3.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "scr-01-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "H": 0.15,
+    "seed": 3
+   },
+   "what": "scr-01-10K, seed 3"
+  },
+  {
+   "name": "siz-01-10K",
+   "file": "siz_01_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR4-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25
+   },
+   "what": "TR4-10K recipe, wider: d 384, 6 heads, 4 layers, ff 1536 (7.2M parameters, 2.2x)",
+   "size": [
+    384,
+    6,
+    4,
+    1536
+   ]
+  },
+  {
+   "name": "siz-01-10K-s1",
+   "file": "siz_01_10k_s1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "siz-01-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "seed": 1
+   },
+   "what": "siz-01-10K, seed 1",
+   "size": [
+    384,
+    6,
+    4,
+    1536
+   ]
+  },
+  {
+   "name": "siz-02-10K",
+   "file": "siz_02_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR4-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25
+   },
+   "what": "TR4-10K recipe, deeper: d 320, 4 heads, 6 layers, ff 1280 (7.5M parameters, 2.3x)",
+   "size": [
+    320,
+    4,
+    6,
+    1280
+   ]
+  },
+  {
+   "name": "siz-02-10K-s1",
+   "file": "siz_02_10k_s1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "siz-02-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "seed": 1
+   },
+   "what": "siz-02-10K, seed 1",
+   "size": [
+    320,
+    4,
+    6,
+    1280
+   ]
+  },
+  {
+   "name": "wid-01-10K",
+   "file": "wid_01_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "siz-01-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "words": 0.05
+   },
+   "what": "siz-01 (wide) + single-word samples 15 -> 5% (they teach the ratio, not the context)",
+   "size": [
+    384,
+    6,
+    4,
+    1536
+   ]
+  },
+  {
+   "name": "wid-01-10K-s1",
+   "file": "wid_01_10k_s1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "wid-01-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "words": 0.05,
+    "seed": 1
+   },
+   "what": "wid-01-10K, seed 1",
+   "size": [
+    384,
+    6,
+    4,
+    1536
+   ]
+  },
+  {
+   "name": "wid-02-10K",
+   "file": "wid_02_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "siz-01-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "X": "kmix_amb_x4"
+   },
+   "what": "siz-01 (wide) + amb-01's new lines with lower-case ambiguous English, x4 (does capacity turn the lean into learning?)",
+   "size": [
+    384,
+    6,
+    4,
+    1536
+   ]
+  },
+  {
+   "name": "wid-02-10K-s1",
+   "file": "wid_02_10k_s1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "wid-02-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "X": "kmix_amb_x4",
+    "seed": 1
+   },
+   "what": "wid-02-10K, seed 1",
+   "size": [
+    384,
+    6,
+    4,
+    1536
+   ]
+  },
+  {
+   "name": "wrd-00-10K",
+   "file": "wrd_00_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "TR5n-51K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "H": 0.08,
+    "words": 0.05
+   },
+   "what": "TR5n recipe at 10k (single-word samples 5%): the baseline for wrd-01"
+  },
+  {
+   "name": "wrd-01-10K",
+   "file": "wrd_01_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "wrd-00-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "H": 0.08,
+    "words": 0.0
+   },
+   "what": "TR5n recipe at 10k with no single-word samples (5 -> 0%): do sentences alone keep one-word input and English + particle? (guard: word1 set)"
+  },
+  {
+   "name": "wrd-00-10K-s1",
+   "file": "wrd_00_10k_s1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "wrd-00-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "H": 0.08,
+    "words": 0.05,
+    "seed": 1
+   },
+   "what": "wrd-00-10K, seed 1"
+  },
+  {
+   "name": "wrd-01-10K-s1",
+   "file": "wrd_01_10k_s1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "wrd-01-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "H": 0.08,
+    "words": 0.0,
+    "seed": 1
+   },
+   "what": "wrd-01-10K, seed 1"
+  },
+  {
+   "name": "bal-01-10K",
+   "file": "bal_01_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": [
+    "wrd-00-10K",
+    "amb-01-10K"
+   ],
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "H": 0.08,
+    "words": 0.05,
+    "X": "kmix_bal"
+   },
+   "what": "TR5n recipe at 10k + balanced short-word lines (amb x4's English-side lines + the same keys as Korean words, key by key: c/ㅊ, go/해, to/새): context, not the key, decides"
+  },
+  {
+   "name": "bal-01-10K-s1",
+   "file": "bal_01_10k_s1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "bal-01-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "H": 0.08,
+    "words": 0.05,
+    "X": "kmix_bal",
+    "seed": 1
+   },
+   "what": "bal-01-10K, seed 1"
+  },
+  {
+   "name": "lwr-01-10K",
+   "file": "lwr_01_10k.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "wrd-00-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "H": 0.08,
+    "words": 0.05,
+    "lower": 0.6
+   },
+   "what": "wrd-00 with English inside Korean typed in lower case 60% (NUNCHI_LOWER_P 0.3 -> 0.6): the fused and English + particle errors are mostly lower-case acronyms glued to Korean (k키트, kt면, gp내려가서)"
+  },
+  {
+   "name": "lwr-01-10K-s1",
+   "file": "lwr_01_10k_s1.pt",
+   "kind": "stream",
+   "left": null,
+   "right": null,
+   "digits": true,
+   "data": "v3",
+   "parent": "lwr-01-10K",
+   "steps": 10000,
+   "status": "experiment",
+   "knobs": {
+    "E": "v3 0.1",
+    "L": 2.25,
+    "S": 2.5,
+    "J": 0.25,
+    "H": 0.08,
+    "words": 0.05,
+    "lower": 0.6,
+    "seed": 1
+   },
+   "what": "lwr-01-10K, seed 1"
   }
  ]
 }

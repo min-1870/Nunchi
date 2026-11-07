@@ -1,0 +1,384 @@
+{
+ "steps": 10000,
+ "base": {
+  "NUNCHI_KO": "0.25",
+  "NUNCHI_EN": "0.20",
+  "NUNCHI_WORDS": "0.15",
+  "NUNCHI_SYNTH": "0",
+  "NUNCHI_KMIX": "0.1132",
+  "NUNCHI_WEB": "0.1868",
+  "NUNCHI_LOAN": "0",
+  "NUNCHI_TRANS_KO": "0.05",
+  "NUNCHI_TRANS_EN": "0.05",
+  "NUNCHI_LOWER_P": "0.3",
+  "NUNCHI_WEB_FILE": "web50_v3.txt",
+  "NUNCHI_POOL_SUFFIX": "_v3",
+  "NUNCHI_DIGITS": "1",
+  "NUNCHI_RIGHT": "all"
+ },
+ "runs": [
+  [
+   "M00-10K",
+   "m00_10k.pt",
+   {
+    "NUNCHI_EN_MK": "0.001",
+    "NUNCHI_AMB_KO_X": "1.42",
+    "NUNCHI_ENTRY_W": "2.70",
+    "NUNCHI_SHORT_EN_MODE": "amb:1.11+switch:1.03"
+   }
+  ],
+  [
+   "M01-10K",
+   "m01_10k.pt",
+   {
+    "NUNCHI_EN_MK": "0.108",
+    "NUNCHI_AMB_KO_X": "3.81",
+    "NUNCHI_ENTRY_W": "1.08",
+    "NUNCHI_SHORT_EN_MODE": "amb:2.95+switch:2.03"
+   }
+  ],
+  [
+   "M02-10K",
+   "m02_10k.pt",
+   {
+    "NUNCHI_EN_MK": "0.114",
+    "NUNCHI_AMB_KO_X": "1.86",
+    "NUNCHI_ENTRY_W": "2.25",
+    "NUNCHI_SHORT_EN_MODE": "amb:1.66+switch:2.49"
+   }
+  ],
+  [
+   "M03-10K",
+   "m03_10k.pt",
+   {
+    "NUNCHI_EN_MK": "0.077",
+    "NUNCHI_AMB_KO_X": "3.09",
+    "NUNCHI_ENTRY_W": "2.00",
+    "NUNCHI_SHORT_EN_MODE": "amb:2.43+switch:1.31"
+   }
+  ],
+  [
+   "M04-10K",
+   "m04_10k.pt",
+   {
+    "NUNCHI_EN_MK": "0.040",
+    "NUNCHI_AMB_KO_X": "3.53",
+    "NUNCHI_ENTRY_W": "2.35",
+    "NUNCHI_SHORT_EN_MODE": "amb:2.58+switch:1.42"
+   }
+  ],
+  [
+   "M05-10K",
+   "m05_10k.pt",
+   {
+    "NUNCHI_EN_MK": "0.094",
+    "NUNCHI_AMB_KO_X": "2.13",
+    "NUNCHI_ENTRY_W": "2.87",
+    "NUNCHI_SHORT_EN_MODE": "amb:2.13+switch:2.40"
+   }
+  ],
+  [
+   "M06-10K",
+   "m06_10k.pt",
+   {
+    "NUNCHI_EN_MK": "0.069",
+    "NUNCHI_AMB_KO_X": "1.34",
+    "NUNCHI_ENTRY_W": "2.20",
+    "NUNCHI_SHORT_EN_MODE": "amb:1.20+switch:2.93"
+   }
+  ],
+  [
+   "M07-10K",
+   "m07_10k.pt",
+   {
+    "NUNCHI_EN_MK": "0.113",
+    "NUNCHI_AMB_KO_X": "2.78",
+    "NUNCHI_ENTRY_W": "1.50",
+    "NUNCHI_SHORT_EN_MODE": "amb:1.50+switch:1.48"
+   }
+  ],
+  [
+   "M08-10K",
+   "m08_10k.pt",
+   {
+    "NUNCHI_EN_MK": "0.049",
+    "NUNCHI_AMB_KO_X": "2.15",
+    "NUNCHI_ENTRY_W": "1.23",
+    "NUNCHI_SHORT_EN_MODE": "amb:1.83+switch:1.36"
+   }
+  ],
+  [
+   "M09-10K",
+   "m09_10k.pt",
+   {
+    "NUNCHI_EN_MK": "0.020",
+    "NUNCHI_AMB_KO_X": "2.54",
+    "NUNCHI_ENTRY_W": "1.37",
+    "NUNCHI_SHORT_EN_MODE": "amb:2.69+switch:1.73"
+   }
+  ],
+  [
+   "M10-10K",
+   "m10_10k.pt",
+   {
+    "NUNCHI_EN_MK": "0.047",
+    "NUNCHI_AMB_KO_X": "1.72",
+    "NUNCHI_ENTRY_W": "2.44",
+    "NUNCHI_SHORT_EN_MODE": "amb:3.22+switch:1.59"
+   }
+  ],
+  [
+   "M11-10K",
+   "m11_10k.pt",
+   {
+    "NUNCHI_EN_MK": "0.054",
+    "NUNCHI_AMB_KO_X": "2.88",
+    "NUNCHI_ENTRY_W": "2.76",
+    "NUNCHI_SHORT_EN_MODE": "amb:3.89+switch:1.23"
+   }
+  ],
+  [
+   "M12-10K",
+   "m12_10k.pt",
+   {
+    "NUNCHI_EN_MK": "0.065",
+    "NUNCHI_AMB_KO_X": "1.87",
+    "NUNCHI_ENTRY_W": "1.13",
+    "NUNCHI_SHORT_EN_MODE": "amb:3.44+switch:2.22"
+   }
+  ],
+  [
+   "M13-10K",
+   "m13_10k.pt",
+   {
+    "NUNCHI_EN_MK": "0.017",
+    "NUNCHI_AMB_KO_X": "1.28",
+    "NUNCHI_ENTRY_W": "1.64",
+    "NUNCHI_SHORT_EN_MODE": "amb:1.96+switch:1.81"
+   }
+  ],
+  [
+   "M14-10K",
+   "m14_10k.pt",
+   {
+    "NUNCHI_EN_MK": "0.011",
+    "NUNCHI_AMB_KO_X": "1.04",
+    "NUNCHI_ENTRY_W": "1.94",
+    "NUNCHI_SHORT_EN_MODE": "amb:1.41+switch:1.12"
+   }
+  ],
+  [
+   "M15-10K",
+   "m15_10k.pt",
+   {
+    "NUNCHI_EN_MK": "0.033",
+    "NUNCHI_AMB_KO_X": "3.43",
+    "NUNCHI_ENTRY_W": "2.58",
+    "NUNCHI_SHORT_EN_MODE": "amb:1.06+switch:2.73"
+   }
+  ],
+  [
+   "M16-10K",
+   "m16_10k.pt",
+   {
+    "NUNCHI_EN_MK": "0.078",
+    "NUNCHI_AMB_KO_X": "1.20",
+    "NUNCHI_ENTRY_W": "1.82",
+    "NUNCHI_SHORT_EN_MODE": "amb:2.21+switch:1.89"
+   }
+  ],
+  [
+   "M17-10K",
+   "m17_10k.pt",
+   {
+    "NUNCHI_EN_MK": "0.027",
+    "NUNCHI_AMB_KO_X": "1.13",
+    "NUNCHI_ENTRY_W": "2.94",
+    "NUNCHI_SHORT_EN_MODE": "amb:3.61+switch:2.07"
+   }
+  ],
+  [
+   "M18-10K",
+   "m18_10k.pt",
+   {
+    "NUNCHI_EN_MK": "0.097",
+    "NUNCHI_AMB_KO_X": "1.57",
+    "NUNCHI_ENTRY_W": "1.60",
+    "NUNCHI_SHORT_EN_MODE": "amb:1.25+switch:1.06"
+   }
+  ],
+  [
+   "M19-10K",
+   "m19_10k.pt",
+   {
+    "NUNCHI_EN_MK": "0.087",
+    "NUNCHI_AMB_KO_X": "2.44",
+    "NUNCHI_ENTRY_W": "1.80",
+    "NUNCHI_SHORT_EN_MODE": "amb:1.53+switch:2.61"
+   }
+  ]
+ ],
+ "evals": [],
+ "knobs": {
+  "M00-10K": {
+   "en_mk": 0.001,
+   "amb": 1.114,
+   "switch": 1.027,
+   "code": 1.0,
+   "amb_ko": 1.423,
+   "entry": 2.698
+  },
+  "M01-10K": {
+   "en_mk": 0.108,
+   "amb": 2.946,
+   "switch": 2.027,
+   "code": 1.0,
+   "amb_ko": 3.808,
+   "entry": 1.08
+  },
+  "M02-10K": {
+   "en_mk": 0.114,
+   "amb": 1.662,
+   "switch": 2.486,
+   "code": 1.0,
+   "amb_ko": 1.857,
+   "entry": 2.245
+  },
+  "M03-10K": {
+   "en_mk": 0.077,
+   "amb": 2.433,
+   "switch": 1.315,
+   "code": 1.0,
+   "amb_ko": 3.088,
+   "entry": 2.004
+  },
+  "M04-10K": {
+   "en_mk": 0.04,
+   "amb": 2.579,
+   "switch": 1.421,
+   "code": 1.0,
+   "amb_ko": 3.527,
+   "entry": 2.351
+  },
+  "M05-10K": {
+   "en_mk": 0.094,
+   "amb": 2.134,
+   "switch": 2.402,
+   "code": 1.0,
+   "amb_ko": 2.135,
+   "entry": 2.87
+  },
+  "M06-10K": {
+   "en_mk": 0.069,
+   "amb": 1.201,
+   "switch": 2.926,
+   "code": 1.0,
+   "amb_ko": 1.336,
+   "entry": 2.196
+  },
+  "M07-10K": {
+   "en_mk": 0.113,
+   "amb": 1.501,
+   "switch": 1.483,
+   "code": 1.0,
+   "amb_ko": 2.781,
+   "entry": 1.498
+  },
+  "M08-10K": {
+   "en_mk": 0.049,
+   "amb": 1.83,
+   "switch": 1.36,
+   "code": 1.0,
+   "amb_ko": 2.154,
+   "entry": 1.225
+  },
+  "M09-10K": {
+   "en_mk": 0.02,
+   "amb": 2.695,
+   "switch": 1.73,
+   "code": 1.0,
+   "amb_ko": 2.541,
+   "entry": 1.373
+  },
+  "M10-10K": {
+   "en_mk": 0.047,
+   "amb": 3.223,
+   "switch": 1.595,
+   "code": 1.0,
+   "amb_ko": 1.723,
+   "entry": 2.443
+  },
+  "M11-10K": {
+   "en_mk": 0.054,
+   "amb": 3.888,
+   "switch": 1.226,
+   "code": 1.0,
+   "amb_ko": 2.884,
+   "entry": 2.763
+  },
+  "M12-10K": {
+   "en_mk": 0.065,
+   "amb": 3.445,
+   "switch": 2.219,
+   "code": 1.0,
+   "amb_ko": 1.87,
+   "entry": 1.126
+  },
+  "M13-10K": {
+   "en_mk": 0.017,
+   "amb": 1.96,
+   "switch": 1.807,
+   "code": 1.0,
+   "amb_ko": 1.279,
+   "entry": 1.643
+  },
+  "M14-10K": {
+   "en_mk": 0.011,
+   "amb": 1.413,
+   "switch": 1.119,
+   "code": 1.0,
+   "amb_ko": 1.042,
+   "entry": 1.94
+  },
+  "M15-10K": {
+   "en_mk": 0.033,
+   "amb": 1.06,
+   "switch": 2.728,
+   "code": 1.0,
+   "amb_ko": 3.434,
+   "entry": 2.583
+  },
+  "M16-10K": {
+   "en_mk": 0.078,
+   "amb": 2.207,
+   "switch": 1.885,
+   "code": 1.0,
+   "amb_ko": 1.2,
+   "entry": 1.823
+  },
+  "M17-10K": {
+   "en_mk": 0.027,
+   "amb": 3.606,
+   "switch": 2.069,
+   "code": 1.0,
+   "amb_ko": 1.133,
+   "entry": 2.945
+  },
+  "M18-10K": {
+   "en_mk": 0.097,
+   "amb": 1.247,
+   "switch": 1.058,
+   "code": 1.0,
+   "amb_ko": 1.575,
+   "entry": 1.597
+  },
+  "M19-10K": {
+   "en_mk": 0.087,
+   "amb": 1.528,
+   "switch": 2.609,
+   "code": 1.0,
+   "amb_ko": 2.44,
+   "entry": 1.798
+  }
+ }
+}

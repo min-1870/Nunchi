@@ -1,0 +1,35 @@
+{
+ "steps": 10000,
+ "base": {
+  "NUNCHI_KO": "0.25",
+  "NUNCHI_EN": "0.20",
+  "NUNCHI_WORDS": "0.15",
+  "NUNCHI_SYNTH": "0",
+  "NUNCHI_KMIX": "0.1132",
+  "NUNCHI_WEB": "0.1868",
+  "NUNCHI_LOAN": "0",
+  "NUNCHI_TRANS_KO": "0.05",
+  "NUNCHI_TRANS_EN": "0.05",
+  "NUNCHI_LOWER_P": "0.3",
+  "NUNCHI_WEB_FILE": "web50_v3.txt",
+  "NUNCHI_POOL_SUFFIX": "_v3",
+  "NUNCHI_DIGITS": "1",
+  "NUNCHI_RIGHT": "all"
+ },
+ "runs": [
+  [
+   "wrd-00-10K",
+   "wrd_00_10k.pt",
+   {
+    "NUNCHI_EN_MK": "0.10",
+    "NUNCHI_EN_MK_FILE": "en_marked_v3.txt",
+    "NUNCHI_ENTRY_W": "2.25",
+    "NUNCHI_SHORT_EN_MODE": "switch:2.5",
+    "NUNCHI_ENDING_P": "0.25",
+    "NUNCHI_SHIFT_P": "0.08",
+    "NUNCHI_WORDS": "0.05"
+   }
+  ]
+ ],
+ "evals": []
+}
