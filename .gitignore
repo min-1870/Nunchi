@@ -12,6 +12,13 @@ models/*
 !models/registry.json
 
 
-# experiment logs (each run appends)
+# experiment logs (each run appends); the analysis and queue scripts kept beside them are code and stay
 experiments/logs/*
 !experiments/logs/.gitkeep
+!experiments/logs/*.py
+!experiments/logs/*.sh
+# holds pieces of the user's own typing (its relabel table): local only
+experiments/logs/my_typing.py
+
+# the app's build output (nunchi.exe goes to GitHub Releases, not the repository)
+app/target/
