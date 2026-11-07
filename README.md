@@ -10,7 +10,7 @@ Type `dkssud` in English mode and it becomes `안녕`. Type `ㅗ디ㅣㅐ` in Ko
 >
 > **Status: early release (0.1.0).** The app is unsigned, so Windows may warn you when you run it.
 >
-> - **Model:** TR5n-102K, one Transformer over the key stream (3.2M parameters, 3.8 ms a word on one CPU thread). It also handles numbers (`3개`, `gpt4`) and English with a Korean particle in one word (`MBC는`).
+> - **Model:** TR5n-102K, one Transformer over the key stream (3.2M parameters, 3.8 ms a keystroke on one CPU thread). It also handles numbers (`3개`, `gpt4`) and English with a Korean particle in one word (`MBC는`).
 > - **Docs:** [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md) (current state, open problems, every experiment) · [docs/EVALUATION.md](docs/EVALUATION.md) (eval sets, terms, how differences are judged) · [models/registry.json](models/registry.json) (every model and its settings).
 
 ## Principles
@@ -59,7 +59,7 @@ Empty cells: the set did not exist when that model was scored. On the 133,050 wo
 
 **In real use:** on 17,876 words the author typed into Claude Code over 32 days, with the app's thresholds, 0.79% of words come out wrong (about 1 in 126; 1.16% with the earlier thresholds). Most of them are the first word of a line (`so` → 내) and lower-case English with a particle (`wsl로`).
 
-**Speed:** 3.8 ms a word on one thread of a Ryzen 5 5600 (ONNX Runtime, 3.2M parameters).
+**Speed:** 3.8 ms a keystroke on one thread of a Ryzen 5 5600 (ONNX Runtime, 3.2M parameters): every key runs the model once over the line so far, up to 64 keys.
 
 ## What we learned
 
