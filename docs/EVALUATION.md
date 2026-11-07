@@ -87,6 +87,48 @@ switching set and the extra end points fill.
 | held-out web text | `data/eval/edge_web.jsonl`, `experiments/edge_mine.py` | 30,000 lines with a Latin or digit token from mC4 ko validation + train shards 50-59 (at most 40 a site, 5 a token), cleaned as the eval sets, not as training: which word shapes fail that the sets miss (log 34) |
 | the author's typing | `data/eval/my_typing*.jsonl`, `experiments/logs/my_typing.py` (personal data: neither is published) | 17,876 words typed into Claude Code (log 33): the error rate in real use and the share of each word kind. Measured once per shipped setting; never tuned on |
 
+## Public set (from 2026-11-08)
+
+`data/public/nunchi_bench.jsonl` (`experiments/public_sets.py`, sha256 in `data/public/manifest.json`): the cells
+above built by the same rules from text that may be published and that no internal set or training pool holds,
+for a public page and for running other input methods. The internal test halves stay private and keep judging
+models. 36,166 lines, 123,075 points; sizes are the internal test halves'. The build is reproducible (the builder
+fixes PYTHONHASHSEED; two runs give the same file).
+
+`bench/` holds what goes out with it: `SPEC.md` (how to type a line and score it), `score.py` (scores any input
+method's output, "id → final text", no dependencies) and `dataset_card.md`. `experiments/public_outputs.py` writes a
+registry model's output in that form (eval rule); `score.py` on it gives the same counts as `public_eval.py` in all
+59 cells (TR5n-102K, 2026-11-08).
+
+| source | licence | stands in for | cells |
+|---|---|---|---|
+| NSMC test reviews not in any internal set | CC0 | — | main |
+| KcBERT dump lines from 12M (internal sets read 2M–12M) | CC BY-SA 4.0 | ko_casual | main, switching (Korean base), KO>EN end, ambiguous English, single jamo, Korean words that read as English, acronyms, fused words, one word (ko1, mix1) |
+| Stack Exchange 2024-03 dump (archive.org item `stackexchange`, before the 2024-07 access terms): interpersonal, parenting, movies, cooking, travel, workplace | CC BY-SA 2.5 / 3.0 / 4.0 by date | IMDB (posts), Reddit (comments) | main, switching (synthetic), number words, key collisions |
+| WikiText-103 lines not used by num_en / en_marked | CC BY-SA | — | number words |
+
+Not in it: mC4 web text (no rights in the text), Reddit and IMDB (no licence), one-word English (Stack Exchange
+comments are 15+ characters). Stack Exchange rows carry site, question, author and user id, as its attribution
+rule asks; lines with a Korean word or a typo put in say so.
+
+Left out of every cell (`public_sets.unfit`, checked on the line and on the text it types, since some KcBERT lines
+hold decomposed jamo): profanity, slurs, hate terms and insults in any typed form (whole words, jamo shorthand ㅅㅂ,
+Latin c발 / X까 / G랄, the ㅗ gesture, English swear words), and web leftovers (URL parts, article ids such as
+"aid 0004071847 sid1", "co kr"). 18% of the KcBERT pool, 4% of NSMC. The set is therefore cleaner than the
+internal one: lines like "C발" in ambiguous English or ㅅㅂ in Korean text are not in it.
+
+Does it stand in for the internal test? `experiments/public_eval.py` scores both with the eval rule, cell by cell
+(two independent rates, 2 SE; the internal scores are kept and reused). TR5n-102K, 2026-11-08
+(`experiments/logs/public/TR5n-102K.json`; the build before the full filter: `TR5n-102K_first_build.json`):
+23 of 31 cells the same. Easier on the public set: the Korean-base switching points (KO>EN start 2.61% vs 5.14%,
+middle 0.65% vs 1.74%, end 2.69% vs 7.14%), ambiguous English (5.60% vs 7.67%), mix1 (4.30% vs 6.28%), Stack
+Exchange comments vs Reddit (main 0.01% vs 0.07%, number words 0.27% vs 0.81%), main KcBERT (5 vs 21 of 20k; 18
+in the build before, so mostly the draw). Harder: key collisions on the 10 keys both hold (18.9% vs 12.7%; per-key
+counts are small and the keys' contexts differ). Already before the full filter the Korean switching and
+ambiguous-English cells came out easier, and the internal ambiguous English without the lines the first filter
+would drop was still 7.41%: the filter is not the whole gap. Report public numbers as the public set's own, with
+this table beside them; never mix them with internal ones.
+
 ## The app's rule
 
 The app acts differently from the eval rule (`app/core/src/typing.rs`): it switches a word in the middle once the

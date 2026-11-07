@@ -108,9 +108,7 @@ def markers(tot, first, last):
 
 def build():
     import source_sets
-    import nunchi.sentence_data as sd
     from nunchi.sentence_tagger import to_sentence
-    from nunchi.translations import dictionary
 
     rnd = random.Random(0)
     lines_of = source_sets.held_out_lines
@@ -125,6 +123,44 @@ def build():
     casual = mixed["nsmc"][:LINES] + mixed["kcbert"][:max(LINES - len(mixed["nsmc"]), 0)]
     rows += [{"src": "ko_casual", "kind": "real", "w": s} for s in casual]
     rows += [{"src": "web", "kind": "real", "w": s} for s in mixed["web"][:LINES]]
+
+    make = synthesizer(rnd)
+    for src in ("imdb", "reddit"):
+        lines = lines_of(src)
+        rnd.shuffle(lines)
+        made, kinds = [], Counter()
+        for line in lines:
+            if len(made) == LINES:
+                break
+            toks = line.split()
+            if len(toks) < 3:
+                continue
+            new, place = make(toks, len(made))
+            if new is None:
+                continue
+            s = to_sentence(" ".join(new))
+            if points(s):
+                made.append(s)
+                kinds[place] += 1
+        rows += [{"src": src, "kind": "synthetic", "w": s} for s in made]
+        print(f"  {src}: {len(made):,} synthetic lines ({dict(kinds)}); e.g. "
+              + " | ".join(" ".join(source_sets_text(s)) for s in made[:4]), flush=True)
+
+    with OUT.open("w", encoding="utf-8") as f:
+        for r in rows:
+            s = r["w"]
+            line = " ".join(k for k, _ in s)
+            f.write(json.dumps({"split": source_sets._half(line), "src": r["src"], "kind": r["kind"],
+                                "w": [[k, "".join(map(str, y))] for k, y in s], "pts": points(s)},
+                               ensure_ascii=False) + "\n")
+    print(f"-> {OUT}", flush=True)
+
+
+def synthesizer(rnd):
+    """-> make(toks, n) -> (new tokens or None, place): English tokens with a Korean word put in at PLACES[n % 3], a
+    translation swapped in when n is even, an interjection / discourse word put in when n is odd (also public_sets.py)"""
+    import nunchi.sentence_data as sd
+    from nunchi.translations import dictionary
 
     tot, first, last = korean_edges()
     mk = markers(tot, first, last)
@@ -169,36 +205,11 @@ def build():
         i, f, _ = rnd.choices(cands, [u for *_, u in cands])[0]
         return toks[:i] + [f] + toks[i + 1:]
 
-    for src in ("imdb", "reddit"):
-        lines = lines_of(src)
-        rnd.shuffle(lines)
-        made, kinds = [], Counter()
-        for line in lines:
-            if len(made) == LINES:
-                break
-            toks = line.split()
-            if len(toks) < 3:
-                continue
-            place = PLACES[len(made) % 3]
-            new = swap(toks, place) if len(made) % 2 == 0 else put_marker(toks, place)
-            if new is None:
-                continue
-            s = to_sentence(" ".join(new))
-            if points(s):
-                made.append(s)
-                kinds[place] += 1
-        rows += [{"src": src, "kind": "synthetic", "w": s} for s in made]
-        print(f"  {src}: {len(made):,} synthetic lines ({dict(kinds)}); e.g. "
-              + " | ".join(" ".join(source_sets_text(s)) for s in made[:4]), flush=True)
+    def make(toks, n):
+        place = PLACES[n % 3]
+        return (swap(toks, place) if n % 2 == 0 else put_marker(toks, place)), place
 
-    with OUT.open("w", encoding="utf-8") as f:
-        for r in rows:
-            s = r["w"]
-            line = " ".join(k for k, _ in s)
-            f.write(json.dumps({"split": source_sets._half(line), "src": r["src"], "kind": r["kind"],
-                                "w": [[k, "".join(map(str, y))] for k, y in s], "pts": points(s)},
-                               ensure_ascii=False) + "\n")
-    print(f"-> {OUT}", flush=True)
+    return make
 
 
 def source_sets_text(s):

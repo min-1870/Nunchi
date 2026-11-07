@@ -94,24 +94,32 @@ def items(split="dev"):
     return out
 
 
-def score(its, keys, base, rev, first_t=None):
-    """-> Counters per group: wrong in the end, wrong at Space, late fixes (wrong at Space, right in the end: the word
-    changes on screen), broke (right at Space, wrong in the end)"""
+def decisions(its, keys, base, rev, first_t=None):
+    """-> [(result at Space, result in the end)] per item, the end after the revision rule (also public_outputs.py)"""
     first_t = FIRST_T if first_t is None else first_t
     run = lambda m, d: st.decide(m, [k[:min(len(k), i + 1 + d)] for k, (_, i, _) in zip(keys, its)],  # noqa: E731
                                  [i for _, i, _ in its])
     r0 = run(base, 0)
     rk = {d: run(rev, d) for d in (2, 3, 5)} if rev else None
-    bad, bad0, late, broke = Counter(), Counter(), Counter(), Counter()
+    out = []
     for j, (s, i, g) in enumerate(its):
         r = r0[j]
-        w0 = text_of(s[i][0], r) != expected(*s[i])
-        bad0[g] += w0
         if rk:
             l3, vl = rk[3][j], es.verdict(rk[3][j])
             t = first_t if i == 0 else REV_T
             if vl != es.verdict(r, 0.7) and l3[1] >= t and es.verdict(rk[2][j]) == vl and es.verdict(rk[5][j]) == vl:
                 r = l3
+        out.append((r0[j], r))
+    return out
+
+
+def score(its, keys, base, rev, first_t=None):
+    """-> Counters per group: wrong in the end, wrong at Space, late fixes (wrong at Space, right in the end: the word
+    changes on screen), broke (right at Space, wrong in the end)"""
+    bad, bad0, late, broke = Counter(), Counter(), Counter(), Counter()
+    for (s, i, g), (r0, r) in zip(its, decisions(its, keys, base, rev, first_t)):
+        w0 = text_of(s[i][0], r0) != expected(*s[i])
+        bad0[g] += w0
         w = text_of(s[i][0], r) != expected(*s[i])
         bad[g] += w
         late[g] += w0 and not w
