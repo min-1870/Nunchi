@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="10 26 76 44" role="img" aria-label="Nunchi">
+  <mask id="nunchi-cut" maskUnits="userSpaceOnUse" x="10" y="26" width="76" height="44">
+    <rect x="10" y="26" width="76" height="44" fill="#fff"/>
+    <path d="M18 34 C42 34 54 62 78 62" stroke="#000" stroke-width="20" stroke-linecap="round" fill="none"/>
+  </mask>
+  <path d="M18 62 C42 62 54 34 78 34" stroke="#D85A30" stroke-width="12" stroke-linecap="round" fill="none" mask="url(#nunchi-cut)"/>
+  <path d="M18 34 C42 34 54 62 78 62" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round" fill="none"/>
+</svg>

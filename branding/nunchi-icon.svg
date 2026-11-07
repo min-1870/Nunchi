@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="Nunchi">
+  <rect width="96" height="96" rx="22" fill="#1C1C1B"/>
+  <path d="M18 62 C42 62 54 34 78 34" stroke="#D85A30" stroke-width="12" stroke-linecap="round" fill="none"/>
+  <path d="M18 34 C42 34 54 62 78 62" stroke="#1C1C1B" stroke-width="20" stroke-linecap="round" fill="none"/>
+  <path d="M18 34 C42 34 54 62 78 62" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round" fill="none"/>
+</svg>
