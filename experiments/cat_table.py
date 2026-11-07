@@ -5,9 +5,9 @@
                  (not a word / a rare word / a common word)
   number words (3개, gpt4, 5km) and Korean+English words (채널A), from the digits / Hangul+Latin set
 Words: dev halves, numbers in place: real mixed sentences + ambiguous words in natural context (+ the digits
-set for the last two rows). Decided at Space, default bias. Cells: error rate % (change vs the mean of S0 and
-S0-s1 in %p).
-    python -u cat_table.py NAME:file ..."""
+set for the last two rows). Decided at Space, default bias. Cells: error rate % (change vs the mean of TR3-10K and
+TR3-10K-s1 in %p).
+    python -u experiments/cat_table.py NAME:file ...   (two of them named TR3-10K and TR3-10K-s1: the baseline)"""
 import hashlib
 import json
 import re
@@ -32,6 +32,7 @@ from nunchi.tagger import KO, device  # noqa: E402
 ROOT = Path(__file__).resolve().parent.parent  # the repository
 LOG = S / "logs" / "cat_table_log.txt"
 dev_ = device()
+B0, B1 = "TR3-10K", "TR3-10K-s1"  # baseline: two seeds of the TR3 recipe at 10k
 JAMO = set("ㅂㅈㄷㄱㅅㅛㅕㅑㅐㅔㅁㄴㅇㄹㅎㅗㅓㅏㅣㅋㅌㅊㅍㅠㅜㅡㅃㅉㄸㄲㅆㅒㅖ")
 
 
@@ -76,44 +77,51 @@ def dev_keyed(path, json_rows):
     return out
 
 
-data = list(natural_sets.load("dev")) + dev_keyed(ROOT / "data" / "eval" / "amb_natural.jsonl", True) + \
-    dev_keyed(SENT / "web_code_eval.txt", False)
-where = [(si, i) for si, (_, idx) in enumerate(data) for i in idx]
-wcats = [cats(*data[si][0][i]) for si, i in where]
-n = defaultdict(int)
-for cs in wcats:
-    for c in cs:
-        n[c] += 1
 ORDER = ["KO form: syllables", "KO form: jamo only", "KO length: 1", "KO length: 2", "KO length: 3+",
          "KO keys in English: not a word", "KO keys in English: a rare word", "KO keys in English: a common word",
          "EN case: lower", "EN case: Capitalised", "EN case: ALL CAPS", "EN length: 1-2", "EN length: 3+",
          "EN keys in Korean: not a word", "EN keys in Korean: a rare word", "EN keys in Korean: a common word",
          "number word", "Korean+English word"]
-keys = [[k for k, _ in s] for s, _ in data]
-rates = {}
-for spec in sys.argv[1:]:
-    name, f = spec.split(":")
-    m = st.StreamTagger(left=None, right=None, digits=True)
-    m.load_state_dict(torch.load(ROOT / "models" / f, map_location="cpu"))
-    m = m.to(dev_).eval()
-    res = st.decide(m, [keys[si][:i + 1] for si, i in where], [i for _, i in where])
-    bad = defaultdict(int)
-    for (si, i), r, cs in zip(where, res, wcats):
-        if text_of(data[si][0][i][0], r) != expected(*data[si][0][i]):
-            for c in cs:
-                bad[c] += 1
-    rates[name] = {c: 100 * bad[c] / n[c] for c in ORDER if n[c]}
-    print(f"  scored {name}", flush=True)
-base = {c: (rates["S0"][c] + rates["S0-s1"][c]) / 2 for c in rates["S0"]}
-LOG.write_text("", encoding="utf-8")
-names = list(rates)
-say("=== error rate % per category (change vs mean of S0 and S0-s1, %p); dev, numbers in place, at Space")
-say(f"  {'category':<36}{'words':>7}" + "".join(f"{nm:>16}" for nm in names) + f"{'seed diff':>11}")
-for c in ORDER:
-    if not n[c]:
-        continue
-    cells = []
-    for nm in names:
-        v = rates[nm][c]
-        cells.append(f"{v:>7.2f}" + (f" ({v - base[c]:+5.2f})" if nm not in ("S0", "S0-s1") else " " * 8))
-    say(f"  {c:<36}{n[c]:>7}" + "".join(f"{x:>16}" for x in cells) + f"{abs(rates['S0'][c] - rates['S0-s1'][c]):>11.2f}")
+
+
+def main():
+    data = list(natural_sets.load("dev")) + dev_keyed(ROOT / "data" / "eval" / "amb_natural.jsonl", True) + \
+        dev_keyed(SENT / "web_code_eval.txt", False)
+    where = [(si, i) for si, (_, idx) in enumerate(data) for i in idx]
+    wcats = [cats(*data[si][0][i]) for si, i in where]
+    n = defaultdict(int)
+    for cs in wcats:
+        for c in cs:
+            n[c] += 1
+    keys = [[k for k, _ in s] for s, _ in data]
+    rates = {}
+    for spec in sys.argv[1:]:
+        name, f = spec.split(":")
+        m = st.StreamTagger(left=None, right=None, digits=True)
+        m.load_state_dict(torch.load(ROOT / "models" / f, map_location="cpu"))
+        m = m.to(dev_).eval()
+        res = st.decide(m, [keys[si][:i + 1] for si, i in where], [i for _, i in where])
+        bad = defaultdict(int)
+        for (si, i), r, cs in zip(where, res, wcats):
+            if text_of(data[si][0][i][0], r) != expected(*data[si][0][i]):
+                for c in cs:
+                    bad[c] += 1
+        rates[name] = {c: 100 * bad[c] / n[c] for c in ORDER if n[c]}
+        print(f"  scored {name}", flush=True)
+    base = {c: (rates[B0][c] + rates[B1][c]) / 2 for c in rates[B0]}
+    LOG.write_text("", encoding="utf-8")
+    names = list(rates)
+    say("=== error rate % per category (change vs mean of TR3-10K and TR3-10K-s1, %p); dev, numbers in place, at Space")
+    say(f"  {'category':<36}{'words':>7}" + "".join(f"{nm:>16}" for nm in names) + f"{'seed diff':>11}")
+    for c in ORDER:
+        if not n[c]:
+            continue
+        cells = []
+        for nm in names:
+            v = rates[nm][c]
+            cells.append(f"{v:>7.2f}" + (f" ({v - base[c]:+5.2f})" if nm not in (B0, B1) else " " * 8))
+        say(f"  {c:<36}{n[c]:>7}" + "".join(f"{x:>16}" for x in cells) + f"{abs(rates[B0][c] - rates[B1][c]):>11.2f}")
+
+
+if __name__ == "__main__":
+    main()

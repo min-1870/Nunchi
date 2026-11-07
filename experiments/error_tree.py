@@ -1,4 +1,4 @@
-"""split TR3-long's errors two ways, then rank by how often each split occurs in real typing.
+"""split TR3-51K's errors two ways, then rank by how often each split occurs in real typing.
   1. by what would fix them: direction (English->Korean / Korean->English / split word), fixed by its own
      revision 3 words later (no gate) or not, both readings real words (en zipf >= 3 and Korean >= 3) or not
   2. by the data: a small decision tree (gini, own code) on word features predicts "wrong at Space"; its
@@ -59,7 +59,7 @@ def feats(k, y, prev, nxt):
 # ---- eval words: features, wrong at Space, fixed by own revision 3 words later
 dev_ = device()
 m = st.StreamTagger(left=None, right=None, digits=True)
-m.load_state_dict(torch.load(ROOT / "models" / "tr3_long.pt", map_location="cpu"))
+m.load_state_dict(torch.load(ROOT / "models" / "tr3_51k.pt", map_location="cpu"))
 m = m.to(dev_).eval()
 amb = []
 for line in OUT_V3.open(encoding="utf-8"):
@@ -86,7 +86,7 @@ for data in (natural_sets.load("dev"), amb):
             tags[(d, later, both)] += 1
 X, Y = np.array(X, float), np.array(Y, float)
 n_err = int(Y.sum())
-say(f"=== 1. TR3-long errors by what would fix them ({n_err} errors of {len(Y)} eval words, dev)")
+say(f"=== 1. TR3-51K errors by what would fix them ({n_err} errors of {len(Y)} eval words, dev)")
 for (d, later, both), c in sorted(tags.items(), key=lambda t: -t[1]):
     say(f"  {d:<32} {later:<22} {both:<26} {c:>4} ({c / n_err:.0%})")
 

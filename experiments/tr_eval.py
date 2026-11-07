@@ -2,7 +2,7 @@
   A. decided at Space: real (+ entry ko->en), real+typo, particle, ambiguous en / ko, pure ko / en, and the
      digits / Hangul+Latin set (all words, and the words holding digits or Hangul+Latin)
   B. revising itself with the rule in use (>= 95% sure 3 words after, same answer with 2 and 5 after):
-     fixed / broken -> wrong after; TX4-long + RV1-long the same way for reference
+     fixed / broken -> wrong after; TX4-51K + RV1-51K the same way for reference
   C. hand-made sentences (probe)
     python -u tr_eval.py <title> NAME:file:digits ...
 """
@@ -153,7 +153,7 @@ def revised(base, rev, set_name):
 say("--- B. revising itself (95% sure, stable at 2/3/5 words after)")
 pairs = [(n, m, m) for n, m in models.items()]
 if (ROOT / "models" / "rv1_long.pt").exists():
-    pairs.append(("TX4-long + RV1-long", load("tx4_long.pt", 3, 1), load("rv1_long.pt")))
+    pairs.append(("TX4-51K + RV1-51K", load("tx4_long.pt", 3, 1), load("rv1_long.pt")))
 for name, b, r in pairs:
     say(f"  {name:<20} " + "   ".join(revised(b, r, s) for s in ("real", "particle", "amb", "code")))
 
