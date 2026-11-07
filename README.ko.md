@@ -1,13 +1,14 @@
-# Nunchi (gksdud)
+# Nunchi
 
 [English](README.md) | **한국어**
 
 > 한/영 키 안 눌러도 알아서 고쳐주는 Windows 입력 도우미
 
 영어 모드에서 `dkssud`를 치면 `안녕`으로, 한글 모드에서 `ㅗ디ㅣㅐ`를 치면 `hello`로 바꿔줍니다. 입력 모드도 같이 바뀝니다.
-저장소 이름 `gksdud`는 영어 모드에서 "한영"을 친 모양입니다.
 
-> **상태: 연구 단계.** 모델은 동작하고, Windows 앱(`app/`)은 만드는 중이며 아직 배포 전입니다.
+> **다운로드:** [Windows 앱](https://github.com/min-1870/Nunchi/releases/latest) · [Hugging Face 모델](https://huggingface.co/min-1870/nunchi-tr5n-102k)
+>
+> **상태: 초기 릴리스 (0.1.0).** 앱에 코드 서명이 없어서, 실행할 때 Windows가 경고할 수 있습니다.
 >
 > - **모델:** TR5n-102K. 키 흐름 전체를 보는 Transformer 하나입니다(파라미터 320만 개, CPU 스레드 하나로 단어당 3.8 ms). 숫자가 든 단어(`3개`, `gpt4`)와 한 단어 안의 영어 + 조사(`MBC는`)도 처리합니다.
 > - **문서 (영어):** [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md) (현재 상태, 남은 문제, 모든 실험) · [docs/EVALUATION.md](docs/EVALUATION.md) (평가셋, 용어, 차이를 판정하는 방법) · [models/registry.json](models/registry.json) (모든 모델과 설정).
@@ -138,7 +139,7 @@ v3 학습 풀과 평가셋은 [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md)의 "How
 | `experiments/logs/app_tune.py`, `early_tune.py` | 앱 기준값을 앱 규칙 그대로 채점 |
 | `models/registry.json` | 모든 모델: 부모, 설정, 상태 |
 | `docs/` | 실험 기록과 평가 가이드 |
-| `app/` | Windows 앱 (만드는 중) |
+| `app/` | Windows 앱 |
 
 ## 로드맵
 
@@ -155,7 +156,7 @@ v3 학습 풀과 평가셋은 [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md)의 "How
 - [x] 실제 타이핑으로 측정 (한 사람의 Claude Code 글)
 - [ ] 깜빡임 없는 단어 중간 전환 (`wha` → 좀)
 - [ ] 여러 사람의 타이핑으로 실제 사용 기준의 오류 비중 재기
-- [ ] Windows 앱: 키보드 훅, IME 제어, 예외 처리, 되돌리기, 후보정, 습관 반영 (만드는 중)
+- [x] Windows 앱: 키보드 훅, IME 제어, 예외 처리, 되돌리기, 후보정, 습관 반영 (0.1.0)
 
 ## 데이터 출처
 

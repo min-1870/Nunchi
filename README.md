@@ -1,13 +1,14 @@
-# Nunchi (gksdud)
+# Nunchi
 
 **English** | [한국어](README.ko.md)
 
 > Automatic Korean/English input switching for Windows: fixes what you typed in the wrong IME mode, without pressing the 한/영 key.
 
 Type `dkssud` in English mode and it becomes `안녕`. Type `ㅗ디ㅣㅐ` in Korean mode and it becomes `hello`. The IME mode switches along with it.
-The repo name `gksdud` is what "한영" looks like when typed in English mode.
 
-> **Status: research.** The model works; the Windows app (`app/`) is in progress and not released.
+> **Download:** [Windows app](https://github.com/min-1870/Nunchi/releases/latest) · [Model on Hugging Face](https://huggingface.co/min-1870/nunchi-tr5n-102k)
+>
+> **Status: early release (0.1.0).** The app is unsigned, so Windows may warn you when you run it.
 >
 > - **Model:** TR5n-102K, one Transformer over the key stream (3.2M parameters, 3.8 ms a word on one CPU thread). It also handles numbers (`3개`, `gpt4`) and English with a Korean particle in one word (`MBC는`).
 > - **Docs:** [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md) (current state, open problems, every experiment) · [docs/EVALUATION.md](docs/EVALUATION.md) (eval sets, terms, how differences are judged) · [models/registry.json](models/registry.json) (every model and its settings).
@@ -138,7 +139,7 @@ A stopped run continues from its checkpoint with `NUNCHI_RESUME=1`.
 | `experiments/logs/app_tune.py`, `early_tune.py` | The app's thresholds, scored with the app's own rule |
 | `models/registry.json` | Every model: parent, settings, status |
 | `docs/` | Experiment log and evaluation guide |
-| `app/` | Windows app (in progress) |
+| `app/` | Windows app |
 
 ## Roadmap
 
@@ -155,7 +156,7 @@ A stopped run continues from its checkpoint with `NUNCHI_RESUME=1`.
 - [x] Real typing, measured (one person's Claude Code text)
 - [ ] Switching in the middle of a word without flashes (`wha` → 좀)
 - [ ] Typing from more people, to weigh errors by real use
-- [ ] Windows app: keyboard hook, IME control, exceptions, undo, revision, habits (in progress)
+- [x] Windows app: keyboard hook, IME control, exceptions, undo, revision, habits (0.1.0)
 
 ## Data sources
 
