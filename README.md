@@ -7,7 +7,10 @@
 Type `dkssud` in English mode and it becomes `안녕`. Type `ㅗ디ㅣㅐ` in Korean mode and it becomes `hello`. The IME mode switches along with it.
 The repo name `gksdud` is what "한영" looks like when typed in English mode.
 
-> **Status: research.** The reference model (TR3-long) is one stream Transformer that decides each word at Space and revises it as more words come; it reads numbers (`3개`, `gpt4`) and English with a Korean particle inside one word (`MBC는`). The earlier pair TX4 (decide) + RV1 (revise) is described below. A Windows app is in progress in `app/`. Current experiments, what each showed and what comes next: [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md); eval sets and how differences are judged: [docs/EVALUATION.md](docs/EVALUATION.md).
+> **Status: research.** The model works; the Windows app (`app/`) is in progress and not released.
+>
+> - **Model:** TR5n-102K, one Transformer over the key stream (3.2M parameters, 3.8 ms a word on one CPU thread). It also handles numbers (`3개`, `gpt4`) and English with a Korean particle in one word (`MBC는`).
+> - **Docs:** [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md) (current state, open problems, every experiment) · [docs/EVALUATION.md](docs/EVALUATION.md) (eval sets, terms, how differences are judged) · [models/registry.json](models/registry.json) (every model and its settings).
 
 ## Principles
 
@@ -20,109 +23,62 @@ The repo name `gksdud` is what "한영" looks like when typed in English mode.
 
 ```
 capture keys (WH_KEYBOARD_LL)
-  → key stream of the last words, spaces included          ... rmfjgek dlqkt rkqtl  MBCsms
-  → TX4: one Transformer over the stream, a label per key   ... k k k k k k k  e e e k k k
-      sees the 3 words before the word and, at most, the one after it
-  → at Space: decide the word (wait one more word if unsure)
-  → a word whose best path switches inside it is split:     MBC + 는
-  → reviser (RV): once more words are there, may change an earlier word,
-      only if it is sure, gives the same answer as words keep coming, and TX4 was unsure
+  → key stream of the line so far, spaces included          ... rmfjgek dlqkt rkqtl  MBCsms
+  → TR5n: one Transformer over the stream, a label per key   ... k k k k k k k  e e e k k k
+  → in the middle of a word: switch the IME early only when very sure (>= 0.99)
+  → at Space: convert the word when sure (>= 0.85); split it where its best path
+      switches inside (>= 0.9):                              MBC + 는
+  → one word later: judge the previous word again (>= 0.8); a word the app changed may go back once
+  → per user: short ambiguous words (so / 내) lean toward what this user keeps
   → correct: Backspace → switch IME → retype raw keys
 ```
 
-Everything works on the **raw key sequence** (`dkssud`), not the characters on screen, so input typed in either mode is handled the same way. Labels for training come for free: text written in Hangul is Korean, text written in Latin letters is English.
+Everything works on the **raw key sequence** (`dkssud`), not the characters on screen, so input typed in either mode is handled the same way. Labels for training come for free: text written in Hangul is Korean, text written in Latin letters is English. The thresholds are the app's, tuned once for the shipped model on dev with the app's own rule and checked on test once.
 
 ## Results
 
-Dev halves of held-out sets: sentences no model was trained on, with any sentence that also appears in the training text removed. The test halves are kept untouched for a final check. Every word is decided (as an input method has to): at Space, or one word later when the model is below 99% sure; a word is split when its best path is at least 70% sure. (Tuned for TX4 afterwards: waiting from below 70% instead of 99% gives 50 instead of 52 on the first row, with fewer words rewritten.)
+Dev halves of held-out sets: sentences no model was trained on; the test halves are kept for a final check. Every word is decided, as an input method has to: at Space, then revised when the model is at least 95% sure three words later and gives the same answer two and five words later. Numbers are % of words wrong in the end, per cell (how the sets are built: [docs/EVALUATION.md](docs/EVALUATION.md)). TR5n-102K is trained twice with different random seeds; both are shown.
 
-**Models:** HMM = key-level word tagger + 2-state HMM over words (the previous approach). TX3, TX4 = the stream Transformer (see [models/registry.json](models/registry.json) for every model and its settings).
-
-### Wrong words
-
-| Set | Words | HMM | TX3 | **TX4** |
-|---|---|---|---|---|
-| Real mixed sentences (NSMC reviews + web) | 15,032 | 105 | 63 | **52** |
-| Real mixed sentences + typos | 15,032 | 183 | **90** | 91 |
-| Web sentences with English + particle words | 16,797 | 171 | 97 | **87** |
-| English sentences with a word swapped for Korean (generated) | 7,369 | 79 | 31 | **27** |
-| Korean sentences with a word swapped for English (generated) | 9,600 | 41 | 22 | **9** |
-| Korean only | 12,819 | | **1** | 3 |
-| English only | 14,216 | | 4 | 4 |
-
-Typos: each word gets one keyboard typo (neighbour key, dropped, doubled or swapped key) with probability 0.15. The generated sets are built like part of the training data, so they flatter the models trained on it; the real sets are the ones to trust.
-
-### Where the language switches (real mixed sentences)
-
-| | Count | HMM | TX3 | **TX4** |
-|---|---|---|---|---|
-| Entering English inside Korean | 1,141 | 42 | 37 | **30** |
-| Back to Korean after English | 1,266 | 18 | 2 | **1** |
-| English + Korean word split exactly (`MBC는`, web set) | 1,694 | 114 | 83 | **76** |
-
-Most of TX4's remaining entry errors are 1-3 letter tokens (`T`, `b`, `gg`): 27 of 30.
-
-### Revising a word later
-
-TX4 decides at Space; a reviser may change a word after 2-5 more words, only when it is sure enough, gives the same answer at 2, 3 and 5 words, and TX4 itself was below 99%. RV0 learns to decide and to revise; RV1 learns only to revise (no label on the word just typed). Fixed / broken against TX4 deciding at Space:
-
-| Set | TX4 wrong | RV0, sure ≥ 90% | **RV1, sure ≥ 90%** | RV0, sure ≥ 99% | **RV1, sure ≥ 99%** |
+| Cell | Dev words | TR3-51K | TR4-51K | **TR5n-102K** seed 0 | **TR5n-102K** seed 1 |
 |---|---|---|---|---|---|
-| Words whose keys are common in both languages (`so` / 내, `go` / 해), English truth | 112 of 1,090 | +17 / −1 | +26 / −3 | +4 / −0 | **+9 / −0** |
-| Same, Korean truth | 70 of 1,017 | +13 / −0 | +16 / −3 | +9 / −0 | +8 / −0 |
-| Real mixed sentences | 56 of 15,032 | +9 / −1 | +12 / −4 | +2 / −0 | **+5 / −0** |
-| Web sentences with English + particle words | 97 of 16,797 | +10 / −1 | +16 / −0 | +3 / −0 | +3 / −0 |
+| Korean → English, start / middle / end of the English part | 1,011 / 4,368 / 2,993 | 3.04 / 2.27 / 4.04 | 2.15 / 1.18 / 2.35 | 2.30 / 1.31 / 2.24 | 2.23 / 1.21 / 2.11 |
+| English → Korean, start / middle / end of the Korean part | 1,595 / 2,090 / 1,465 | 1.26 / 5.42 / 12.16 | 0.22 / 1.78 / 4.64 | 0.29 / 2.45 / 5.20 | 0.29 / 1.77 / 4.54 |
+| Korean only / English only (main sets) | 60,267 / 39,011 | 0.12 / 0.04 | 0.11 / 0.04 | 0.10 / 0.03 | 0.09 / 0.05 |
+| English words that are Korean words too (`so` = 내, `go` = 해) | 3,087 | 14.16 | 7.22 | 6.32 | 6.48 |
+| Korean words that are English words too (해 = `go`) | 2,998 | | 1.95 | 2.06 | 1.99 |
+| Single jamo in Korean text (ㅋ, ㅠ) | 2,739 | | 7.73 | 7.87 | 7.33 |
+| English words typed with a Korean marker's keys (`gee` = ㅎㄷㄷ) | 547 | 19.41 | 11.16 | 12.09 | 12.09 |
+| Words with both languages and no space (`QR코드`, `MBC는`) | 1,513 | | | 6.79 | 7.24 |
+| Number words in English text (`gpt4`, `5km`) | 2,993 | 3.38 | 0.73 | 0.33 | 0.40 |
+| A typo in the word / Shift still held (`RK` for 까) | 14,437 / 3,842 | | | 1.08 / 0.22 | 1.05 / 0.22 |
+| Upper-case acronyms (`EU`, `WHO`) | 1,504 | | | 0.20 | 0.30 |
+| One word alone: Korean / English / English + particle (`apk의`) | 2,000 / 1,993 / 965 | | | | 0.50 / 1.91 / 7.46 |
 
-Training only to revise makes the reviser more useful: at 99% it fixes 25 words with none broken (RV0: 18), at 90% it fixes more but breaks more. The gains are still small next to the remaining errors.
+Empty cells: the set did not exist when that model was scored. On the 133,050 words every compared model was scored on: TR4-51K 879 wrong, TR5n-102K 840 (seed 0) and 806 (seed 1). Two seeds of one recipe differ by about 35-45 words there, so smaller differences are not results.
 
-### Speed
+**In real use:** on 17,876 words the author typed into Claude Code over 32 days, with the app's thresholds, 0.79% of words come out wrong (about 1 in 126; 1.16% with the earlier thresholds). Most of them are the first word of a line (`so` → 내) and lower-case English with a particle (`wsl로`).
 
-About 17 ms per word on one CPU thread (3.2M parameters).
+**Speed:** 3.8 ms a word on one thread of a Ryzen 5 5600 (ONNX Runtime, 3.2M parameters).
 
 ## What we learned
 
-The order things happened in, and what each step showed.
+The six lessons that shaped the model. All of them, in order, with the numbers: [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md#what-each-step-showed).
 
-**1. Single-word scores were far too optimistic.** The first fastText model made 0.02% wrong corrections on single words but 1.03% on real sentences. Short, frequent, ambiguous words (그 `rm`, 내 `so`) are rare in a word list and common in real text. From then on every result was measured on sentences.
-
-**2. Calibration and one-word lookahead made context usable.** Softening fastText's overconfident scores cut wrong corrections from 1.03% to 0.39%; a 2-state HMM over words brought Korean sentences to 0.05% but pulled English inside Korean toward Korean. Waiting one word on ambiguous words fixed most of that.
-
-**3. The synthetic mixed set hid the real problem.** Random dictionary words inserted into sentences are long, rare and easy. Real English inside Korean is short and often uppercase (`TV`, `OST`, `CG`). A 4-state HMM looked best on synthetic data and worst on real data.
-
-**4. Fixing the data beat every context trick.** Rebuilding the training words from real text (cased English, English found in Korean text, collisions sent to the far more common side, Korean typed in the wrong mode removed) cut wrong corrections on real mixed reviews from 0.68% to 0.26% without any context.
-
-**5. An HMM has a hard ceiling.** It can move a word's odds by at most s/(1−s), so a word the model is 99% sure of can never be overturned. What is left are words that are real in both languages (`so` / 내, `go` / 해), which need the neighbouring words themselves, not just their language.
-
-**6. A key-level tagger removes the one-language-per-word assumption.** Labelling every key makes `githubdp` → `github` + `에` just a path that switches once.
-
-**7. Wrong corrections cost more than they look.** The app switches the IME mode after a correction, so one wrong correction makes the following words come out wrong too.
-
-**8. A sentence model over the key stream beats a model over words.** A BiLSTM over word summaries forgot what the word tagger knew (particles). One Transformer over the whole key stream, spaces included, learned both, and became the main model.
-
-**9. Stacked attention leaks the future.** With a mask that lets a word see one word ahead, four layers let it reach four words ahead through its neighbours, while typing never shows more than one. Training now labels only the word being decided (the last one, or the one before it with the last as lookahead), so training sees exactly what typing does.
-
-**10. Three words of left context are enough.** A model trained on the three previous words matched one trained on the whole sentence. Waiting for the next word changes little: a few words either way.
-
-**11. A data filter was deleting exactly the hard cases.** Dropping every sentence with Latin whose keys spell a Korean word (to remove Korean typed in the wrong mode) also removed `so`, `go`, `do`, `work`, `B급` and almost every single letter: in the kept text, short English inside Korean never appeared, so the model turned it into Korean. Deciding by frequency instead (English zipf vs the Korean word's zipf; capitals Shift cannot type in Korean mean English) brought these back. Real mixed-sentence errors went from 76 to 62, and from 63 to 52 with the next step.
-
-**12. Meaningful synthetic data beats random insertion.** Swapping a word for its translation (`the weather` → `the 날씨`, `날씨가` → `weather가`; loanwords like `미팅` / `meeting` are just one more translation) replaced inserting random words, which only helped on tests built the same way. Lower-casing 30% of English inside Korean text taught that people type acronyms in lower case (`jsa`, `apk`).
-
-**13. Single letters are a choice, not an error to fix.** `T`, `b`, `s` inside Korean text are usually Korean jamo in real text (ㅆ, ㅠ, ㄴ) but sometimes English. A rule "never convert one letter" fixed 15 such words on real sentences but broke as many Korean comments with spaced jamo (`ㅅ ㅂ`, `ㅁ ㅊ`), so it is left to the model.
-
-**14. Revising later works only as a separate, careful step.** Training one model to decide now and revise later made its decision at Space worse. A separate reviser with strict limits fixes a few words and almost never breaks one.
-
-**15. Things that did not help.** A higher learning rate with a shorter schedule (clearly worse); code-level speedups (the encoder is 95% of the time); `torch.compile` (3%); WSL instead of native Windows (11% faster, not worth the switch yet).
-
-**How far to trust small differences:** the dev sets hold a few dozen errors per model and every model is trained once. Differences under about ten words are within noise.
+- **Score sentences, not words.** The first model made 0.02% wrong corrections on single words and 1.03% on real sentences: short, ambiguous words (그 `rm`, 내 `so`) are rare in word lists and common in text.
+- **Fixing the data beat every context trick.** A filter meant to drop Korean typed in the wrong mode was deleting exactly the hard cases (`so`, `go`, `B급`, single letters). Deciding by word frequency instead brought them back; real mixed-sentence errors went from 76 to 52 with the next data step.
+- **Label every key, over the whole key stream.** A key-level tagger handles words that switch language inside (`github` + `에`); one Transformer over the key stream, spaces included, beat a model over word summaries.
+- **Make training see what typing sees.** Stacked attention lets a word reach several words ahead through its neighbours, while typing shows at most one; training now labels only the word being decided.
+- **Seeds move results more than most settings.** The same recipe with another seed differs by 44 words at 51k steps, so every change is trained twice and judged per cell.
+- **What is left fails in both directions.** The same strings fail both ways in different sets (ㅎㅎ read as `gg`, `gee` read as ㅎㄷㄷ; 해 read as `go`, `go` read as 해), and every data change aimed at them only moved errors from one side to the other.
 
 ## Reproduce
 
-Tested with Python 3.12 on Windows. `PYTHONUTF8=1` is needed so the console can print Korean.
+Tested with Python 3.12 on Windows; the commands are for Git Bash. `PYTHONUTF8=1` is needed so the console can print Korean.
 
 ```bash
 py -m venv .venv
 .venv/Scripts/python -m pip install -r requirements.txt
-mkdir -p data/raw/kcbert data/raw/mc4 data/raw/wiktionary
+mkdir -p data/raw/kcbert data/raw/mc4 data/raw/wiktionary data/raw/imdb data/raw/goemotions data/raw/wikitext103 data/raw/reddit_big
 curl -L -o data/raw/nsmc_train.txt https://raw.githubusercontent.com/e9t/nsmc/master/ratings_train.txt
 curl -L -o data/raw/nsmc_test.txt https://raw.githubusercontent.com/e9t/nsmc/master/ratings_test.txt
 curl -L -o data/raw/eng_sentences.tsv.bz2 https://downloads.tatoeba.org/exports/per_language/eng/eng_sentences.tsv.bz2
@@ -130,6 +86,10 @@ curl -L -o data/raw/kor_sentences.tsv.bz2 https://downloads.tatoeba.org/exports/
 for p in aa ab ac; do curl -L -o data/raw/kcbert/kcbert-train.tar.gz$p https://github.com/Beomi/KcBERT/releases/download/TrainData_v1/kcbert-train.tar.gz$p; done
 curl -L -o data/raw/mc4/c4-ko-validation.json.gz https://huggingface.co/datasets/allenai/c4/resolve/main/multilingual/c4-ko-validation.tfrecord-00000-of-00001.json.gz
 curl -L -o data/raw/wiktionary/kaikki-korean.jsonl https://kaikki.org/dictionary/Korean/kaikki.org-dictionary-Korean.jsonl
+for s in train test; do curl -L -o data/raw/imdb/$s.parquet https://huggingface.co/api/datasets/stanfordnlp/imdb/parquet/plain_text/$s/0.parquet; done
+for s in train validation test; do curl -L -o data/raw/goemotions/$s.parquet https://huggingface.co/api/datasets/google-research-datasets/go_emotions/parquet/simplified/$s/0.parquet; done
+for i in 0 1; do curl -L -o data/raw/wikitext103/train_$i.parquet https://huggingface.co/api/datasets/Salesforce/wikitext/parquet/wikitext-103-raw-v1/train/$i.parquet; done
+for s in buildapc gaming relationship_advice todayilearned; do curl -L -o data/raw/reddit_big/${s}_0.parquet https://huggingface.co/api/datasets/HuggingFaceGECLM/REDDIT_comments/parquet/default/$s/0.parquet; done
 export PYTHONUTF8=1
 .venv/Scripts/python -m nunchi.count_corpus     # word / Latin / Latin+Hangul counts per source
 .venv/Scripts/python -m nunchi.make_data        # word train/valid/test
@@ -142,16 +102,16 @@ export PYTHONUTF8=1
 .venv/Scripts/python -m nunchi.ambiguous_eval   # eval set of words whose keys are common in both languages
 ```
 
-The models train with PyTorch. On an AMD GPU under Windows, AMD's ROCm wheels go in a separate venv (see [AMD's guide](https://rocm.docs.amd.com/projects/radeon-ryzen/en/latest/docs/install/installrad/windows/install-pytorch.html)); on CPU, `pip install torch` is enough. TX4 (about 25 minutes on a Radeon RX 9060 XT):
+The v3 training pools and the eval sets are built with the commands in [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md) ("How to run"). The models train with PyTorch. On CPU, `pip install torch` into the same venv is enough; on an AMD GPU under Windows, install AMD's ROCm wheels instead (see [AMD's guide](https://rocm.docs.amd.com/projects/radeon-ryzen/en/latest/docs/install/installrad/windows/install-pytorch.html)). TR5n-102K (about 2.5 hours on a Radeon RX 9060 XT), then its scores:
 
 ```bash
-NUNCHI_KO=0.25 NUNCHI_EN=0.20 NUNCHI_WORDS=0.15 NUNCHI_KMIX=0.113 NUNCHI_WEB=0.187 \
-NUNCHI_TRANS_KO=0.05 NUNCHI_TRANS_EN=0.05 NUNCHI_SYNTH=0 NUNCHI_LOWER_P=0.3 \
-NUNCHI_ONE_WORD=1 NUNCHI_LEFT=3 NUNCHI_SAVE_LAST=1 NUNCHI_OUT=models/tx4.pt \
-.venv-rocm/Scripts/python -m nunchi.stream_tagger train tx4_log.txt 17000 2125 1000 1024 3
+.venv/Scripts/python -u experiments/run.py experiments/configs/tr5n_102k.json
+.venv/Scripts/python -u experiments/system_eval.py TR5n-102K=TR5n-102K
 ```
 
-A stopped run continues from its checkpoint with `NUNCHI_RESUME=1`. The benchmark scripts behind the tables are not in the repository yet.
+A stopped run continues from its checkpoint with `NUNCHI_RESUME=1`.
+
+**Versions used:** [requirements-train.txt](requirements-train.txt) (training, ROCm), [requirements-export.txt](requirements-export.txt) (ONNX export), and [data_versions.sha256](data_versions.sha256) for every raw file (downloaded 2026-10-31 to 2026-11-03). Tatoeba and kaikki.org change over time, so a later download can differ from these; a new training run also differs a little from any other, as data workers and GPU kernels are not deterministic.
 
 ## Layout
 
@@ -167,13 +127,16 @@ A stopped run continues from its checkpoint with `NUNCHI_RESUME=1`. The benchmar
 | `nunchi/ambiguous_eval.py` | Eval set of words whose keys are common in both languages |
 | `nunchi/tagger.py` | Key-level BiLSTM-CRF word tagger (HMM baseline), CRF, English + particle words |
 | `nunchi/sentence_tagger.py` | Training data sampler (shares by role), LSTM sentence model |
-| `nunchi/stream_tagger.py` | Stream Transformer (TX, RV), training with resume, `decide()` |
+| `nunchi/stream_tagger.py` | Stream Transformer (TX, RV, TR), training with resume, `decide()` |
 | `nunchi/models.py` | Load a model by name with its context and thresholds from `models/registry.json` |
 | `nunchi/eval_sentence.py` | Decide every word of a sentence (now / one word later), split words |
 | `nunchi/export_onnx.py` | ONNX export for the app |
 | `nunchi/context.py` | HMM context experiments, sentence sets incl. real mixed reviews |
 | `nunchi/demo.py`, `typebench.py` | Local test page, real-keystroke benchmark |
 | `experiments/` | Eval sets with numbers in place, per-category tables, bias curves, `run.py` for training runs from a config |
+| `experiments/system_eval.py` | Scores a model on every dev / test set with the revision rule |
+| `experiments/logs/app_tune.py`, `early_tune.py` | The app's thresholds, scored with the app's own rule |
+| `models/registry.json` | Every model: parent, settings, status |
 | `docs/` | Experiment log and evaluation guide |
 | `app/` | Windows app (in progress) |
 
@@ -182,16 +145,17 @@ A stopped run continues from its checkpoint with `NUNCHI_RESUME=1`. The benchmar
 - [x] Hangul → 두벌식 keys, fastText baseline, HMM context
 - [x] Real mixed-language test sets (NSMC reviews, mC4 web text), held-out and de-duplicated
 - [x] Per-key tagging model (switches inside a word: `MBC는`, `github에`)
-- [x] Sentence model over the key stream (TX4), training that matches typing
-- [x] Data: frequency-based wrong-mode filter, mC4, translation swaps, lower-case augmentation
+- [x] Sentence model over the key stream, training that matches typing
+- [x] Data: frequency-based wrong-mode filter, mC4, translation swaps, lower-case augmentation, Shift-held typos
 - [x] ONNX export
-- [x] Reviser: dedicated model (RV1)
-- [ ] One model that decides and revises as well as TX4 + RV1
-- [ ] Eval set from real typing logs (the sets above are reviews and web text)
-- [ ] Seed-to-seed variance, so small differences can be judged
-- [ ] Longer training (loss was still falling at 17,000 steps)
-- [ ] Benchmark scripts in the repository
-- [ ] Windows app: keyboard hook, IME control, exclusions, undo, revision
+- [x] One model that decides and revises (TR)
+- [x] Seed-to-seed variance, so small differences can be judged
+- [x] Longer training (102k steps; 204k no better)
+- [x] Eval sets per switching point, typos, ambiguous words both ways, one-word input
+- [x] Real typing, measured (one person's Claude Code text)
+- [ ] Switching in the middle of a word without flashes (`wha` → 좀)
+- [ ] Typing from more people, to weigh errors by real use
+- [ ] Windows app: keyboard hook, IME control, exceptions, undo, revision, habits (in progress)
 
 ## Data sources
 
@@ -201,5 +165,17 @@ A stopped run continues from its checkpoint with `NUNCHI_RESUME=1`. The benchmar
 - [Tatoeba](https://tatoeba.org): English and Korean sentences, CC BY 2.0 FR
 - [Wiktionary](https://en.wiktionary.org) Korean entries via [kaikki.org](https://kaikki.org) (Tatu Ylonen, "Wiktextract: Wiktionary as Machine-Readable Structured Data", LREC 2022): CC BY-SA 4.0 / GFDL
 - [wordfreq](https://github.com/rspeer/wordfreq): English words and frequencies, data under CC BY-SA 4.0
+- [WikiText-103](https://huggingface.co/datasets/Salesforce/wikitext) (Wikipedia articles): English text, CC BY-SA. Used in training.
+- [REDDIT_comments](https://huggingface.co/datasets/HuggingFaceGECLM/REDDIT_comments) (four subreddits): English text, no license stated. About 0.7% of training samples, and some eval sets.
+- [GoEmotions](https://huggingface.co/datasets/google-research-datasets/go_emotions) (Reddit comments): Apache-2.0 on its card. Eval sets and a few training lines.
+- [IMDB reviews](https://huggingface.co/datasets/stanfordnlp/imdb): license "other", no terms on its card. Eval sets and a few training lines.
 
-No data derived from these sources is in this repository; the scripts above rebuild it. Trained weights are not in the repository either; because they are trained on CC BY-SA data, published weights would carry CC BY-SA 4.0.
+No data derived from these sources is in this repository. Trained weights are not in the repository either.
+
+## License
+
+The code is under the [MIT License](LICENSE).
+
+The trained weights are released separately with the app, as is, for trying the app and for research. They were trained on the sources listed above, and those sources' terms apply. Because part of that data is CC BY-SA, the weights are offered under CC BY-SA 4.0 as far as the author is able to do so. No rights are granted in third-party text.
+
+Not every source states a license. If you hold rights in any of this data and object to its use, please open an issue: the model will be retrained without it or taken down.
