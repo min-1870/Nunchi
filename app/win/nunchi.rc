@@ -1,0 +1,6 @@
+// Icons compiled into nunchi.exe (drawn by icons/make_icons.py). The first one is the exe's own icon.
+1   ICON "icons/app.ico"
+101 ICON "icons/tray_dark_on.ico"
+102 ICON "icons/tray_dark_off.ico"
+103 ICON "icons/tray_light_on.ico"
+104 ICON "icons/tray_light_off.ico"
