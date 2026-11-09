@@ -3,7 +3,7 @@
 use crate::hook::{self, Ev, SHARED, WAKE};
 use crate::ime;
 use crate::uia::{BeforeCaret, Uia};
-use crate::keys::{classify, is_shift, Batch, Class};
+use crate::keys::{classify, is_shift, strays, Batch, Class, Shifts};
 use nunchi_core::compose::{compose_str, words_of};
 use nunchi_core::decide::{Mode, Thresholds};
 use nunchi_core::exceptions::Exceptions;
@@ -31,6 +31,8 @@ enum Wake {
     Idle,
     /// a click or focus change settled: look at the field now
     Moved,
+    /// no key for a moment and none held: check Shift against Windows
+    Quiet,
 }
 
 /// Threshold for a single key, whatever the main one is.
@@ -63,7 +65,8 @@ pub struct Worker {
     password: Option<bool>,
     /// UI Automation, made on first use on this thread; None inside: not available
     uia: Option<Option<Uia>>,
-    shift: bool,
+    /// the Shift keys the user is holding, as far as the keys that came through say
+    shift: Shifts,
     ctrl: bool,
     alt: bool,
     win: bool,
@@ -123,7 +126,7 @@ impl Worker {
             word_select: None,
             password: None,
             uia: None,
-            shift: false,
+            shift: Shifts::default(),
             ctrl: false,
             alt: false,
             win: false,
@@ -172,8 +175,8 @@ impl Worker {
                         .wait_timeout(s, settle.map_or(IDLE, |d| d.min(IDLE)))
                         .unwrap_or_else(|e| e.into_inner());
                     s = g;
-                    if wait.timed_out() && s.queue.is_empty() && self.typing.has_held() && settle.is_none() {
-                        break Wake::Idle;
+                    if wait.timed_out() && s.queue.is_empty() && settle.is_none() {
+                        break if self.typing.has_held() { Wake::Idle } else { Wake::Quiet };
                     }
                 }
             };
@@ -184,7 +187,7 @@ impl Worker {
                     // and how long handling it took (sending included)
                     let wait = ev.at.elapsed();
                     let t0 = Instant::now();
-                    let class = format!("{:?}", classify(ev.vk, self.shift));
+                    let class = format!("{:?}", classify(ev.vk, self.shift.any()));
                     let kind = class.split('(').next().unwrap_or("").to_string();
                     self.handle(ev);
                     let w = (wait.as_secs_f64() * 100000.0).round() / 100.0;
@@ -195,7 +198,25 @@ impl Worker {
                 // typed rather than leave them hidden; the boundary still judges the word
                 Wake::Idle if hook::try_hold() => self.flush(),
                 Wake::Idle => {}
+                Wake::Quiet => self.check_shift(),
             }
+        }
+    }
+
+    /// Nothing is on its way, ours or the user's, so Windows can be believed about Shift. A release the hook
+    /// never saw (the lock screen, an admin window, stopped from the tray) would otherwise read every later
+    /// key as shifted. A Shift we pressed back as the user let go of it (the hook stops holding keys when the
+    /// worker stalls, so the release can overtake us) has nobody left to release it: we do.
+    fn check_shift(&mut self) {
+        let os = Shifts::now();
+        self.shift.left &= os.left;
+        self.shift.right &= os.right;
+        let stray = strays(os, self.shift);
+        if stray.any() && hook::try_hold() {
+            let mut b = Batch::new(stray);
+            b.set_shift(false);
+            self.send(b);
+            self.write(json!({"event": "stray_shift", "left": stray.left, "right": stray.right}));
         }
     }
 
@@ -240,11 +261,11 @@ impl Worker {
             self.typing.moved();
             self.new_field();
         }
-        let class = classify(ev.vk, self.shift);
+        let class = classify(ev.vk, self.shift.any());
         if class == Class::Modifier {
             let v = VIRTUAL_KEY(ev.vk);
             if is_shift(ev.vk) {
-                self.shift = !ev.up;
+                self.shift.set(ev.vk, !ev.up);
             } else if matches!(v, VK_CONTROL | VK_LCONTROL | VK_RCONTROL) {
                 self.ctrl = !ev.up;
             } else if matches!(v, VK_MENU | VK_LMENU | VK_RMENU) {
@@ -436,7 +457,7 @@ impl Worker {
         if ev.vk != VK_SPACE.0 {
             self.password = None; // Enter or Tab may have moved on to a password field
         }
-        let shift = self.shift;
+        let shift = self.shift.any();
         self.last_boundary = Some((ev, shift));
         let t0 = Instant::now();
         let model = &mut self.model;

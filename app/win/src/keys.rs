@@ -166,6 +166,50 @@ fn scan_of(vk: u16) -> u16 {
     unsafe { MapVirtualKeyW(vk as u32, MAPVK_VK_TO_VSC) as u16 }
 }
 
+/// Which Shift keys are down. Windows keeps the two apart: letting go of one leaves the other pressed.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct Shifts {
+    pub left: bool,
+    pub right: bool,
+}
+
+impl Shifts {
+    pub fn any(self) -> bool {
+        self.left || self.right
+    }
+
+    /// A Shift key went down or up (VK_SHIFT, as another program may send it, counts as the left one).
+    pub fn set(&mut self, vk: u16, down: bool) {
+        if VIRTUAL_KEY(vk) == VK_RSHIFT {
+            self.right = down;
+        } else {
+            self.left = down;
+        }
+    }
+
+    /// What Windows has down right now, ours included.
+    pub fn now() -> Self {
+        let down = |vk: VIRTUAL_KEY| unsafe { GetAsyncKeyState(vk.0 as i32) < 0 };
+        Shifts { left: down(VK_LSHIFT), right: down(VK_RSHIFT) }
+    }
+}
+
+/// The last Shift edge we sent for each side (left, right) was a press.
+static OURS: [std::sync::atomic::AtomicBool; 2] =
+    [std::sync::atomic::AtomicBool::new(false), std::sync::atomic::AtomicBool::new(false)];
+
+/// Shift keys that are down only because we pressed them: `os` has them down, the user is not holding them.
+/// Only our own presses count, so a Shift the hook never saw (it can be off, or dropped by Windows) is left alone.
+pub fn strays(os: Shifts, user: Shifts) -> Shifts {
+    let check = |i: usize, os: bool, user: bool| {
+        if !os {
+            OURS[i].store(false, std::sync::atomic::Ordering::Relaxed);
+        }
+        os && !user && OURS[i].load(std::sync::atomic::Ordering::Relaxed)
+    };
+    Shifts { left: check(0, os.left, user.left), right: check(1, os.right, user.right) }
+}
+
 /// A batch of keys to send, keeping track of the Shift state it leaves.
 pub struct Batch {
     pub inputs: Vec<INPUT>,
@@ -174,12 +218,12 @@ pub struct Batch {
     /// the kind of what is being added
     kind: Kind,
     /// Shift as the target app sees it now (starts as the user's physical state)
-    shift: bool,
-    user_shift: bool,
+    shift: Shifts,
+    user_shift: Shifts,
 }
 
 impl Batch {
-    pub fn new(user_shift: bool) -> Self {
+    pub fn new(user_shift: Shifts) -> Self {
         Batch {
             inputs: Vec::new(),
             kinds: Vec::new(),
@@ -213,10 +257,26 @@ impl Batch {
         self.push(input(vk, scan, true, true), Kind::Arrow);
     }
 
+    fn shift_edge(&mut self, right: bool, down: bool) {
+        let vk = if right { VK_RSHIFT.0 } else { VK_LSHIFT.0 };
+        self.push(input(vk, scan_of(vk), !down, false), Kind::Shift);
+        self.shift.set(vk, down);
+        OURS[right as usize].store(down, std::sync::atomic::Ordering::Relaxed);
+    }
+
     pub fn set_shift(&mut self, down: bool) {
-        if self.shift != down {
-            self.push(input(VK_LSHIFT.0, scan_of(VK_LSHIFT.0), !down, false), Kind::Shift);
-            self.shift = down;
+        if down {
+            if !self.shift.any() {
+                // the key the user holds, so that their release is the one that lets it go
+                self.shift_edge(self.user_shift.right && !self.user_shift.left, true);
+            }
+        } else {
+            if self.shift.left {
+                self.shift_edge(false, false);
+            }
+            if self.shift.right {
+                self.shift_edge(true, false);
+            }
         }
     }
 
@@ -263,8 +323,13 @@ impl Batch {
 
     /// Put Shift back the way the user is holding it.
     pub fn restore_shift(&mut self) {
-        let s = self.user_shift;
-        self.set_shift(s);
+        let user = self.user_shift;
+        if self.shift.left != user.left {
+            self.shift_edge(false, user.left);
+        }
+        if self.shift.right != user.right {
+            self.shift_edge(true, user.right);
+        }
     }
 
     /// One event at a time, each at least a pause after the event before it, ours or the user's (Notepad
@@ -312,4 +377,70 @@ impl Batch {
 
 fn digits() -> bool {
     DIGITS.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const A: u16 = 0x41;
+    const L: u16 = VK_LSHIFT.0;
+    const R: u16 = VK_RSHIFT.0;
+    const LEFT: Shifts = Shifts { left: true, right: false };
+    const RIGHT: Shifts = Shifts { left: false, right: true };
+    const BOTH: Shifts = Shifts { left: true, right: true };
+
+    /// (key, up) of each event in the batch.
+    fn events(b: &Batch) -> Vec<(u16, bool)> {
+        b.inputs
+            .iter()
+            .map(|i| {
+                let ki = unsafe { i.Anonymous.ki };
+                (ki.wVk.0, ki.dwFlags.contains(KEYEVENTF_KEYUP))
+            })
+            .collect()
+    }
+
+    fn typed(user: Shifts, keys: &str) -> Vec<(u16, bool)> {
+        let mut b = Batch::new(user);
+        for c in keys.chars() {
+            b.letter(c);
+        }
+        b.restore_shift();
+        events(&b)
+    }
+
+    #[test]
+    fn right_shift_is_let_go_and_put_back_on_the_right() {
+        assert_eq!(typed(RIGHT, "a"), [(R, true), (A, false), (A, true), (R, false)]);
+    }
+
+    #[test]
+    fn a_shifted_key_while_right_is_held_presses_right_not_left() {
+        // the case that left Left Shift pressed: lower-case keys retyped, then the key Shift is held for
+        assert_eq!(typed(RIGHT, "aA"), [(R, true), (A, false), (A, true), (R, false), (A, false), (A, true)]);
+    }
+
+    #[test]
+    fn left_shift_is_let_go_and_put_back_on_the_left() {
+        assert_eq!(typed(LEFT, "a"), [(L, true), (A, false), (A, true), (L, false)]);
+    }
+
+    #[test]
+    fn both_shifts_are_let_go_and_put_back() {
+        assert_eq!(
+            typed(BOTH, "a"),
+            [(L, true), (R, true), (A, false), (A, true), (L, false), (R, false)]
+        );
+    }
+
+    #[test]
+    fn with_no_shift_held_nothing_stays_pressed() {
+        assert_eq!(typed(Shifts::default(), "A"), [(L, false), (A, false), (A, true), (L, true)]);
+    }
+
+    #[test]
+    fn nothing_is_sent_when_shift_is_already_as_wanted() {
+        assert_eq!(typed(RIGHT, "A"), [(A, false), (A, true)]);
+    }
 }

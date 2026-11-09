@@ -130,6 +130,12 @@ there is no setting for it (the app is meant to need no interaction).
    for Korean and nothing was corrected there.
 4. The IME is left in the language of the word's last part.
 
+**Shift.** A correction lets go of Shift, types, and presses it back as the user holds it. Left and right
+are tracked apart and each goes back on its own key: Windows keeps them apart, and a Left Shift pressed back
+while the user held the right one stayed down after they let go. After 150 ms with no key the worker checks
+against Windows: a release the hook never saw is forgotten, and a Shift down only because we pressed it is
+let go. Only our own presses are let go, so a Shift the hook did not see is left alone.
+
 **Select instead of Backspace.** Steps 2–3 select the word with Shift+Left (one per character on screen;
 the composing syllable is committed by the first) and type over it, at the boundary and mid-word, so the
 word changes in one step instead of emptying first (it also feels faster). Undo still uses Backspace.
