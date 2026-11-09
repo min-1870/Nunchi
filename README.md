@@ -8,7 +8,7 @@ Type `dkssud` in English mode and it becomes `안녕`. Type `ㅗ디ㅣㅐ` in Ko
 
 > **Download:** [Windows app](https://github.com/min-1870/Nunchi/releases/latest) · [Model on Hugging Face](https://huggingface.co/min-1870/nunchi-tr5n-102k)
 >
-> **Status: early release (0.1.0).** The app is unsigned, so Windows may warn you when you run it.
+> **Status: early release (0.1.1).** The app is unsigned, so Windows may warn you when you run it.
 >
 > - **Model:** TR5n-102K, one Transformer over the key stream (3.2M parameters, 3.8 ms a keystroke on one CPU thread). It also handles numbers (`3개`, `gpt4`) and English with a Korean particle in one word (`MBC는`).
 > - **Docs:** [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md) (current state, open problems, every experiment) · [docs/EVALUATION.md](docs/EVALUATION.md) (eval sets, terms, how differences are judged) · [models/registry.json](models/registry.json) (every model and its settings).

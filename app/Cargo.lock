@@ -287,7 +287,7 @@ dependencies = [
 
 [[package]]
 name = "nunchi"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "embed-resource",
  "nunchi-core",
@@ -297,7 +297,7 @@ dependencies = [
 
 [[package]]
 name = "nunchi-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ort",
  "serde",

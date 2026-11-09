@@ -1,6 +1,6 @@
 # Third-party notices
 
-These notices cover `nunchi.exe` as released (v0.1.0). Nunchi's own code is under the [MIT License](LICENSE). The
+These notices cover `nunchi.exe` as released (v0.1.1). Nunchi's own code is under the [MIT License](LICENSE). The
 model weights built into the exe have their own terms: see the License and Data sources sections of the
 [README](README.md).
 

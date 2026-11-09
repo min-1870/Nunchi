@@ -8,7 +8,7 @@
 
 > **다운로드:** [Windows 앱](https://github.com/min-1870/Nunchi/releases/latest) · [Hugging Face 모델](https://huggingface.co/min-1870/nunchi-tr5n-102k)
 >
-> **상태: 초기 릴리스 (0.1.0).** 앱에 코드 서명이 없어서, 실행할 때 Windows가 경고할 수 있습니다.
+> **상태: 초기 릴리스 (0.1.1).** 앱에 코드 서명이 없어서, 실행할 때 Windows가 경고할 수 있습니다.
 >
 > - **모델:** TR5n-102K. 키 흐름 전체를 보는 Transformer 하나입니다(파라미터 320만 개, CPU 스레드 하나로 키 입력당 3.8 ms). 숫자가 든 단어(`3개`, `gpt4`)와 한 단어 안의 영어 + 조사(`MBC는`)도 처리합니다.
 > - **문서 (영어):** [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md) (현재 상태, 남은 문제, 모든 실험) · [docs/EVALUATION.md](docs/EVALUATION.md) (평가셋, 용어, 차이를 판정하는 방법) · [models/registry.json](models/registry.json) (모든 모델과 설정).
